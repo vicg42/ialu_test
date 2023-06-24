@@ -1,4 +1,4 @@
-/// Copyright by Syntacore LLC © 2016-2021. See LICENSE for details
+/// Copyright by Syntacore LLC Â© 2016-2021. See LICENSE for details
 /// @file       <scr1_riscv_isa_decoding.svh>
 /// @brief      RISC-V ISA definitions file
 ///
@@ -56,6 +56,7 @@ localparam SCR1_IALU_CMD_ALL_NUM_E    = 23;
 localparam SCR1_IALU_CMD_ALL_NUM_E    = 15;
 `endif // ~SCR1_RVM_EXT
 localparam SCR1_IALU_CMD_WIDTH_E      = $clog2(SCR1_IALU_CMD_ALL_NUM_E);
+`ifndef SCR1_IALU_SIM
 typedef enum logic [SCR1_IALU_CMD_WIDTH_E-1:0] {
     SCR1_IALU_CMD_NONE  = '0,   // IALU disable
     SCR1_IALU_CMD_AND,          // op1 & op2
@@ -84,6 +85,34 @@ typedef enum logic [SCR1_IALU_CMD_WIDTH_E-1:0] {
     SCR1_IALU_CMD_REMU          // op1 u% op2
 `endif  // SCR1_RVM_EXT
 } type_scr1_ialu_cmd_sel_e;
+`else
+typedef logic [SCR1_IALU_CMD_WIDTH_E-1:0] type_scr1_ialu_cmd_sel_e;
+parameter SCR1_IALU_CMD_NONE    = 0;     // IALU disable
+parameter SCR1_IALU_CMD_AND     = 1;     // op1 & op2
+parameter SCR1_IALU_CMD_OR      = 2;     // op1 | op2
+parameter SCR1_IALU_CMD_XOR     = 3;     // op1 ^ op2
+parameter SCR1_IALU_CMD_ADD     = 4;     // op1 + op2
+parameter SCR1_IALU_CMD_SUB     = 5;     // op1 - op2
+parameter SCR1_IALU_CMD_SUB_LT  = 6;     // op1 < op2
+parameter SCR1_IALU_CMD_SUB_LTU = 7;     // op1 u< op2
+parameter SCR1_IALU_CMD_SUB_EQ  = 8;     // op1 = op2
+parameter SCR1_IALU_CMD_SUB_NE  = 9;     // op1 != op2
+parameter SCR1_IALU_CMD_SUB_GE  = 10;    // op1 >= op2
+parameter SCR1_IALU_CMD_SUB_GEU = 11;    // op1 u>= op2
+parameter SCR1_IALU_CMD_SLL     = 12;    // op1 << op2
+parameter SCR1_IALU_CMD_SRL     = 13;    // op1 >> op2
+parameter SCR1_IALU_CMD_SRA     = 14;    // op1 >>> op2
+`ifdef SCR1_RVM_EXT
+parameter SCR1_IALU_CMD_MUL     = 15;    // low(unsig(op1) * unsig(op2))
+parameter SCR1_IALU_CMD_MULHU   = 16;    // high(unsig(op1) * unsig(op2))
+parameter SCR1_IALU_CMD_MULHSU  = 17;    // high(op1 * unsig(op2))
+parameter SCR1_IALU_CMD_MULH    = 18;    // high(op1 * op2)
+parameter SCR1_IALU_CMD_DIV     = 19;    // op1 / op2
+parameter SCR1_IALU_CMD_DIVU    = 20;    // op1 u/ op2
+parameter SCR1_IALU_CMD_REM     = 21;    // op1 % op2
+parameter SCR1_IALU_CMD_REMU    = 22;    // op1 u% op2
+`endif  // SCR1_RVM_EXT
+`endif //SCR1_TEST_DBG
 
 //-------------------------------------------------------------------------------
 // IALU SUM2 operands (result is JUMP/BRANCH target, LOAD/STORE address)
