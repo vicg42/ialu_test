@@ -51,9 +51,9 @@ typedef enum logic [SCR1_IALU_OP_WIDTH_E-1:0] {
 // IALU main commands
 //-------------------------------------------------------------------------------
 `ifdef SCR1_RVM_EXT
-localparam SCR1_IALU_CMD_ALL_NUM_E    = 23;
+parameter SCR1_IALU_CMD_ALL_NUM_E    = 23;
 `else // ~SCR1_RVM_EXT
-localparam SCR1_IALU_CMD_ALL_NUM_E    = 15;
+parameter SCR1_IALU_CMD_ALL_NUM_E    = 15;
 `endif // ~SCR1_RVM_EXT
 localparam SCR1_IALU_CMD_WIDTH_E      = $clog2(SCR1_IALU_CMD_ALL_NUM_E);
 `ifndef SCR1_IALU_SIM
