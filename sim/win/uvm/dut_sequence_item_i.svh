@@ -27,7 +27,7 @@ class dut_sequence_item_i extends uvm_sequence_item;
         SCR1_IALU_CMD_OR      ,    // op1 | op2
         SCR1_IALU_CMD_XOR     ,    // op1 ^ op2
         SCR1_IALU_CMD_ADD     ,    // op1 + op2
-        SCR1_IALU_CMD_SUB     ,    // op1 - op2
+        SCR1_IALU_CMD_SUB     ,   // op1 - op2
         SCR1_IALU_CMD_SUB_LT  ,    // op1 < op2
         SCR1_IALU_CMD_SUB_LTU ,    // op1 u< op2
         SCR1_IALU_CMD_SUB_EQ  ,    // op1 = op2
@@ -37,17 +37,17 @@ class dut_sequence_item_i extends uvm_sequence_item;
         SCR1_IALU_CMD_SLL     ,    // op1 << op2
         SCR1_IALU_CMD_SRL     ,    // op1 >> op2
         SCR1_IALU_CMD_SRA          // op1 >>> op2
-        `ifdef SCR1_RVM_EXT
-        ,
-        SCR1_IALU_CMD_MUL     ,    // low(unsig(op1) * unsig(op2))
-        SCR1_IALU_CMD_MULHU   ,    // high(unsig(op1) * unsig(op2))
-        SCR1_IALU_CMD_MULHSU  ,    // high(op1 * unsig(op2))
-        SCR1_IALU_CMD_MULH    ,    // high(op1 * op2)
-        SCR1_IALU_CMD_DIV     ,    // op1 / op2
-        SCR1_IALU_CMD_DIVU    ,    // op1 u/ op2
-        SCR1_IALU_CMD_REM     ,    // op1 % op2
-        SCR1_IALU_CMD_REMU         // op1 u% op2
-        `endif  // SCR1_RVM_EXT
+        // `ifdef SCR1_RVM_EXT
+        // ,
+        // SCR1_IALU_CMD_MUL     ,    // low(unsig(op1) * unsig(op2))
+        // SCR1_IALU_CMD_MULHU   ,    // high(unsig(op1) * unsig(op2))
+        // SCR1_IALU_CMD_MULHSU  ,    // high(op1 * unsig(op2))
+        // SCR1_IALU_CMD_MULH    ,    // high(op1 * op2)
+        // SCR1_IALU_CMD_DIV     ,    // op1 / op2
+        // SCR1_IALU_CMD_DIVU    ,    // op1 u/ op2
+        // SCR1_IALU_CMD_REM     ,    // op1 % op2
+        // SCR1_IALU_CMD_REMU         // op1 u% op2
+        // `endif  // SCR1_RVM_EXT
         };
     }
 

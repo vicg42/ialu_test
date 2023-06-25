@@ -44,7 +44,7 @@ task dut_monitor::run_phase(uvm_phase phase);
             seqi_rd.alu_main_result = dut_if_h.ialu_main_res_o;
             seqi_rd.alu_cmp_result = dut_if_h.ialu_cmp_res_o;
             seqi_rd.alu_addr_result = dut_if_h.ialu_addr_res_o;
-            seqi_rd.alu_rvm_res_rdy = dut_if_h.ialu_rvm_res_rdy_o;
+            // seqi_rd.alu_rvm_res_rdy = dut_if_h.ialu_rvm_res_rdy_o;
 
             analysis_port_o.write(seqi_rd); // send seqi_rd to scoreboard
         end
