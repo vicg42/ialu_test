@@ -11,13 +11,6 @@ always #5 clk_i = ~clk_i; // 100 MHz
 
 bit rst_n_i = 1'b0;
 
-// dut_if #(
-//     .SCR1_XLEN(`SCR1_XLEN),
-//     .SCR1_IALU_CMD_WIDTH($clog2(SCR1_IALU_CMD_ALL_NUM_E))
-// ) dut_if_h(
-//     .clk_i(clk_i),
-//     .rst_n_i(rst_n_i)
-// );
 dut_if dut_if_h(
     .clk(clk_i),
     .rst_n(rst_n_i)
@@ -51,15 +44,6 @@ import uvm_pkg::*;            // [UVM] package
 import dut_package::*;  // connect our package
 
 initial begin
-    // // [UVM] pass interface to UVM database
-    // uvm_config_db #(virtual dut_if #(
-    //             .SCR1_XLEN(`SCR1_XLEN),
-    //             .SCR1_IALU_CMD_WIDTH($clog2(SCR1_IALU_CMD_ALL_NUM_E))
-    //             )
-    //         )::set(null, "*", "dut_if_h", dut_if_h);
-    // // [UVM] run test routine
-    // run_test("dut_test");
-
     // [UVM] pass interface to UVM database
     uvm_config_db #(virtual dut_if)::set(null, "*", "dut_if_h", dut_if_h);
     // [UVM] run test routine
