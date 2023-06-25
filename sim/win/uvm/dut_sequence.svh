@@ -18,7 +18,7 @@ class dut_sequence extends uvm_sequence #(dut_sequence_item_i);
     endfunction : new
 
     virtual task body();
-        const int sequence_item_count = 5;
+        const int sequence_item_count = 300;
         int sequence_item_cnt = 0;
         uvm_report_info("", $sformatf("body: #### sequence_item_i count:%03d ####", sequence_item_count));
         repeat(sequence_item_count) begin

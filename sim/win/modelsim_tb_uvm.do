@@ -30,4 +30,4 @@ view wave
 #config wave -timelineunits us
 view structure
 view signals
-run 1us
+run 5us
