@@ -4,7 +4,8 @@
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
 
-`include "dut_sequence_item.svh"
+`include "dut_sequence_item_i.svh"
+`include "dut_sequence_item_o.svh"
 
 `uvm_analysis_imp_decl(_i) // [UVM]
 `uvm_analysis_imp_decl(_o) // [UVM]
@@ -13,10 +14,10 @@ class dut_scoreboard extends uvm_scoreboard;
     `uvm_component_utils(dut_scoreboard)
 
     //info TLM: https://www.theartofverification.com/uvm-tlm-concepts/
-    uvm_analysis_imp_i #(dut_sequence_item, dut_scoreboard) analysis_port_i;
-    uvm_analysis_imp_o #(dut_sequence_item, dut_scoreboard) analysis_port_o;
-    dut_sequence_item queue_seqi_wr[$];
-    dut_sequence_item queue_seqi_rd[$];
+    uvm_analysis_imp_i #(dut_sequence_item_i, dut_scoreboard) analysis_port_i;
+    uvm_analysis_imp_o #(dut_sequence_item_o, dut_scoreboard) analysis_port_o;
+    dut_sequence_item_i queue_seqi_wr[$];
+    dut_sequence_item_o queue_seqi_rd[$];
 
     function new (string name = "dut_scoreboard", uvm_component parent = null);
         super.new(name, parent);
@@ -28,21 +29,21 @@ class dut_scoreboard extends uvm_scoreboard;
         super.build_phase(phase);
     endfunction
 
-    extern virtual function void write_i(dut_sequence_item item);
-    extern virtual function void write_o(dut_sequence_item item);
+    extern virtual function void write_i(dut_sequence_item_i item);
+    extern virtual function void write_o(dut_sequence_item_o item);
 endclass
 
 //-------------------------------------------------------------------------------------------------------------------------------
 // IMPLEMENTATION
 //-------------------------------------------------------------------------------------------------------------------------------
-function void dut_scoreboard::write_i(dut_sequence_item item);
+function void dut_scoreboard::write_i(dut_sequence_item_i item);
     // uvm_report_info("", $sformatf("sequence_item(i): %s", item.display_i));
     queue_seqi_wr.push_back(item);
 endfunction
 
-function void dut_scoreboard::write_o(dut_sequence_item item);
-    dut_sequence_item seqi_wr;
-    dut_sequence_item seqi_rd;
+function void dut_scoreboard::write_o(dut_sequence_item_o item);
+    dut_sequence_item_i seqi_wr;
+    dut_sequence_item_o seqi_rd;
 
     // uvm_report_info("", $sformatf("sequence_item(o): %s", item.display_o));
     queue_seqi_rd.push_back(item);

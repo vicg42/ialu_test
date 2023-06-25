@@ -41,7 +41,8 @@ scr1_pipe_ialu dut (
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
-import dut_package::*;  // connect our package
+// import dut_package::*;  // connect our package
+`include "dut_test.svh"
 
 initial begin
     // [UVM] pass interface to UVM database

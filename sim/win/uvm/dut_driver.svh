@@ -4,15 +4,16 @@
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
 
-`include "dut_sequence_item.svh"
+`include "dut_sequence_item_i.svh"
+`include "scr1_riscv_isa_decoding.svh"
 
-class dut_driver extends uvm_driver #(dut_sequence_item);
+class dut_driver extends uvm_driver #(dut_sequence_item_i);
     `uvm_component_utils(dut_driver)
 
     virtual dut_if dut_if_h;
-    dut_sequence_item seqi_wr;
+    dut_sequence_item_i seqi_wr;
     //info TLM: https://www.theartofverification.com/uvm-tlm-concepts/
-    uvm_analysis_port #(dut_sequence_item) analysis_port_i;
+    uvm_analysis_port #(dut_sequence_item_i) analysis_port_i;
 
     function new (string name = "dut_driver", uvm_component parent = null);
         super.new(name, parent);
@@ -34,7 +35,7 @@ endclass : dut_driver
 // IMPLEMENTATION
 //-------------------------------------------------------------------------------------------------------------------------------
 task dut_driver::run_phase(uvm_phase phase);
-    dut_sequence_item seqi_wr_scoreboard;
+    dut_sequence_item_i seqi_wr_scoreboard;
 
     dut_if_h.ialu_cmd_i        = 0;
     dut_if_h.ialu_main_op1_i   = 0;
@@ -54,7 +55,7 @@ task dut_driver::run_phase(uvm_phase phase);
         dut_if_h.ialu_addr_op1_i = seqi_wr.alu_addr_op1;
         dut_if_h.ialu_addr_op2_i = seqi_wr.alu_addr_op2;
 
-        seqi_wr_scoreboard = dut_sequence_item::type_id::create("seqi_wr_scoreboard");
+        seqi_wr_scoreboard = dut_sequence_item_i::type_id::create("seqi_wr_scoreboard");
         seqi_wr_scoreboard = seqi_wr;
         analysis_port_i.write(seqi_wr_scoreboard);// send seqi_wr to scoreboard
 

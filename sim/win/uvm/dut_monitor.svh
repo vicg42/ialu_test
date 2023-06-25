@@ -4,15 +4,15 @@
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
 
-`include "dut_sequence_item.svh"
+`include "dut_sequence_item_o.svh"
 
 class dut_monitor extends uvm_monitor;
     `uvm_component_utils(dut_monitor);
 
     virtual dut_if dut_if_h;
-    dut_sequence_item seqi_rd;
+    dut_sequence_item_o seqi_rd;
     //info TLM: https://www.theartofverification.com/uvm-tlm-concepts/
-    uvm_analysis_port #(dut_sequence_item) analysis_port_o;
+    uvm_analysis_port #(dut_sequence_item_o) analysis_port_o;
 
     function new(string name = "dut_monitor", uvm_component parent = null);
         super.new(name, parent);
@@ -38,7 +38,7 @@ task dut_monitor::run_phase(uvm_phase phase);
     bit rd_en = 0;
     forever @(posedge dut_if_h.clk) begin
         if (rd_en) begin
-            seqi_rd = dut_sequence_item::type_id::create("seqi_rd");
+            seqi_rd = dut_sequence_item_o::type_id::create("seqi_rd");
 
             seqi_rd.alu_cmd = dut_if_h.ialu_cmd_i;
             seqi_rd.alu_main_result = dut_if_h.ialu_main_res_o;

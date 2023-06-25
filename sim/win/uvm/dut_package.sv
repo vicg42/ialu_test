@@ -5,7 +5,8 @@ package dut_package;
     import uvm_pkg::*; // [UVM] package
     `include "uvm_macros.svh" // [UVM] package
 
-    `include "dut_sequence_item.svh"
+    `include "dut_sequence_item_o.svh"
+    `include "dut_sequence_item_i.svh"
     `include "dut_sequencer.svh"
     `include "dut_driver.svh"
     `include "dut_monitor.svh"
