@@ -1,6 +1,11 @@
 `ifndef DUT_SEQUENCER_SV
 `define DUT_SEQUENCER_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_sequence_item.svh"
+
 class dut_sequencer extends uvm_sequencer #(dut_sequence_item);
     `uvm_sequencer_utils(dut_sequencer)
 
@@ -10,4 +15,4 @@ class dut_sequencer extends uvm_sequencer #(dut_sequence_item);
 
 endclass : dut_sequencer
 
-`endif
+`endif //DUT_SEQUENCER_SV

@@ -1,6 +1,13 @@
 `ifndef DUT_AGENT_SV
 `define DUT_AGENT_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_sequencer.svh"
+`include "dut_driver.svh"
+`include "dut_monitor.svh"
+
 class dut_agent extends uvm_agent;
     `uvm_component_utils(dut_agent)
 
@@ -27,4 +34,4 @@ class dut_agent extends uvm_agent;
 
 endclass : dut_agent
 
-`endif
+`endif //DUT_AGENT_SV

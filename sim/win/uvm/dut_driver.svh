@@ -1,6 +1,11 @@
 `ifndef DUT_DRIVER_SV
 `define DUT_DRIVER_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_sequence_item.svh"
+
 class dut_driver extends uvm_driver #(dut_sequence_item);
     `uvm_component_utils(dut_driver)
 
@@ -57,4 +62,4 @@ task dut_driver::run_phase(uvm_phase phase);
     end
 endtask : run_phase
 
-`endif
+`endif //DUT_DRIVER_SV

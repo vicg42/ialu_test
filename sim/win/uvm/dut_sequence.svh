@@ -1,6 +1,11 @@
 `ifndef DUT_SEQUENCE_SV
 `define DUT_SEQUENCE_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_sequence_item.svh"
+
 //info how to write uvm sequence: https://verificationguide.com/uvm/uvm-sequence/#How_to_write_uvm_sequence
 
 class dut_sequence extends uvm_sequence #(dut_sequence_item);
@@ -29,4 +34,4 @@ class dut_sequence extends uvm_sequence #(dut_sequence_item);
 
 endclass : dut_sequence
 
-`endif
+`endif //DUT_SEQUENCE_SV

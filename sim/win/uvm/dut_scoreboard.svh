@@ -1,3 +1,10 @@
+`ifndef DUT_SCOREBOARD_SV
+`define DUT_SCOREBOARD_SV
+
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_sequence_item.svh"
 
 `uvm_analysis_imp_decl(_i) // [UVM]
 `uvm_analysis_imp_decl(_o) // [UVM]
@@ -29,9 +36,24 @@ endclass
 // IMPLEMENTATION
 //-------------------------------------------------------------------------------------------------------------------------------
 function void dut_scoreboard::write_i(dut_sequence_item item);
-    uvm_report_info("", $sformatf("sequence_item(i): %s", item.display_i));
+    // uvm_report_info("", $sformatf("sequence_item(i): %s", item.display_i));
+    queue_seqi_wr.push_back(item);
 endfunction
 
 function void dut_scoreboard::write_o(dut_sequence_item item);
-    uvm_report_info("", $sformatf("sequence_item(o): %s", item.display_o));
+    dut_sequence_item seqi_wr;
+    dut_sequence_item seqi_rd;
+
+    // uvm_report_info("", $sformatf("sequence_item(o): %s", item.display_o));
+    queue_seqi_rd.push_back(item);
+
+    seqi_wr = queue_seqi_wr.pop_front();
+    seqi_rd = queue_seqi_rd.pop_front();
+    uvm_report_info("", $sformatf("sequence_item(ch): %s; main_result:%02d; addr_result:%02d",
+                seqi_wr.display_i,
+                seqi_rd.alu_main_result,
+                seqi_rd.alu_addr_result));
+
 endfunction
+
+`endif //DUT_SCOREBOARD_SV

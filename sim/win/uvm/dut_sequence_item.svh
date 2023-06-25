@@ -1,6 +1,10 @@
 `ifndef DUT_SEQUENCE_ITEM_SV
 `define DUT_SEQUENCE_ITEM_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+// `include "scr1_riscv_isa_decoding.svh"
 class dut_sequence_item extends uvm_sequence_item;
     `uvm_object_utils(dut_sequence_item);
 
@@ -21,7 +25,7 @@ class dut_sequence_item extends uvm_sequence_item;
     //https://verificationguide.com/systemverilog/systemverilog-randomization-and-constraints/
 
     constraint c_alu_cmd {
-        alu_cmd inside {[1:4]};
+        alu_cmd inside {[4:4]};
     }
 
     constraint c_main_op {
@@ -51,13 +55,13 @@ class dut_sequence_item extends uvm_sequence_item;
 
     //display only input of dut_if
     function string display_i();
-        return $sformatf("alu_cmd[%X]; main_op1,2:%d,%d; addr_op1,2:%d,%d;",
+        return $sformatf("alu_cmd[%X]; main_op:%02d,%02d; addr_op:%02d,%02d",
                 alu_cmd, alu_main_op1, alu_main_op2, alu_addr_op1, alu_addr_op2);
     endfunction : display_i
 
     //display only output of dut_if
     function string display_o();
-        return $sformatf("alu_cmd[%X]; main_result:%d; cmp_result:%d; addr_result:%d; rvm_res_rdy:%d",
+        return $sformatf("alu_cmd[%X]; main_result:%02d; cmp_result:%02d; addr_result:%02d; rvm_res_rdy:%02d",
                 alu_cmd, alu_main_result, alu_cmp_result, alu_addr_result, alu_rvm_res_rdy);
     endfunction : display_o
 
@@ -67,4 +71,4 @@ endclass : dut_sequence_item
 // IMPLEMENTATION
 //----------------------------------------------------------------------------------
 
-`endif
+`endif //DUT_SEQUENCE_ITEM_SV

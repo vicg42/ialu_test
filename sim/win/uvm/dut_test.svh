@@ -1,6 +1,12 @@
 `ifndef DUT_TEST_SV
 `define DUT_TEST_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_env.svh"
+`include "dut_sequence.svh"
+
 //info:
 //http://cluelogic.com/2015/05/uvm-tutorial-for-candy-lovers-reporting-verbosity/
 
@@ -37,4 +43,4 @@ task dut_test::run_phase(uvm_phase phase);
 
 endtask : run_phase
 
-`endif
+`endif //DUT_TEST_SV

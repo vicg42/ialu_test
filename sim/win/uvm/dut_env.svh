@@ -1,6 +1,12 @@
 `ifndef DUT_ENV_SV
 `define DUT_ENV_SV
 
+import uvm_pkg::*;            // [UVM] package
+`include "uvm_macros.svh"     // [UVM] macroses
+
+`include "dut_agent.svh"
+`include "dut_scoreboard.svh"
+
 class dut_env extends uvm_env;
     `uvm_component_utils(dut_env)
 
@@ -36,4 +42,4 @@ class dut_env extends uvm_env;
     // endfunction
 endclass
 
-`endif
+`endif //DUT_ENV_SV
