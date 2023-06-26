@@ -20,10 +20,7 @@ class dut_sequence extends uvm_sequence #(dut_sequence_item_i);
     virtual task body();
         const int sequence_item_count = 300;
         int sequence_item_cnt = 0;
-        uvm_report_info("", $sformatf("body: #### sequence_item_i count:%03d ####", sequence_item_count));
         repeat(sequence_item_count) begin
-            uvm_report_info("", $sformatf("body: sequence_item_i num[%03d]", sequence_item_cnt++));
-
             //https://verificationguide.com/uvm/uvm-sequence/#UVM_Sequence_macros
             `uvm_create(sequence_item_i)
             assert(sequence_item_i.randomize());
