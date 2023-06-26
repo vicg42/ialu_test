@@ -1,5 +1,5 @@
-`ifndef DUT_AGENT_SV
-`define DUT_AGENT_SV
+`ifndef __DUT_AGENT_SV__
+`define __DUT_AGENT_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -34,4 +34,4 @@ class dut_agent extends uvm_agent;
 
 endclass : dut_agent
 
-`endif //DUT_AGENT_SV
+`endif //__DUT_AGENT_SV__

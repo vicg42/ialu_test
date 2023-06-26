@@ -1,5 +1,5 @@
-`ifndef DUT_SEQUENCE_ITEM_SV
-`define DUT_SEQUENCE_ITEM_SV
+`ifndef __DUT_SEQUENCE_ITEM_SV__
+`define __DUT_SEQUENCE_ITEM_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -27,7 +27,7 @@ class dut_sequence_item_i extends uvm_sequence_item;
         SCR1_IALU_CMD_OR      ,    // op1 | op2
         SCR1_IALU_CMD_XOR     ,    // op1 ^ op2
         SCR1_IALU_CMD_ADD     ,    // op1 + op2
-        SCR1_IALU_CMD_SUB     ,   // op1 - op2
+        SCR1_IALU_CMD_SUB     ,    // op1 - op2
         SCR1_IALU_CMD_SUB_LT  ,    // op1 < op2
         SCR1_IALU_CMD_SUB_LTU ,    // op1 u< op2
         SCR1_IALU_CMD_SUB_EQ  ,    // op1 = op2
@@ -51,41 +51,35 @@ class dut_sequence_item_i extends uvm_sequence_item;
         };
     }
 
-    constraint c_main_op {
-        alu_main_op1 inside{[1:15]};
-        alu_main_op2 inside{[1:15]};
+    constraint c_main_op1 {
+        alu_main_op1 inside{[0:(2**`SCR1_XLEN)-1]};
     }
 
-    constraint c_addr_op {
-        alu_addr_op1 inside{[1:15]};
-        alu_addr_op2 inside{[1:15]};
+    constraint c_main_op2 {
+        alu_main_op2 inside{[0:(2**`SCR1_XLEN)-1]};
+    }
+
+    constraint c_addr_op1 {
+        alu_addr_op1 inside{[0:(2**`SCR1_XLEN)-1]};
+    }
+
+    constraint c_addr_op2 {
+        alu_addr_op2 inside{[0:(2**`SCR1_XLEN)-1]};
     }
 
     constraint c_alu_rvm_cmd_vd {
         alu_rvm_cmd_vd inside{[0:1]};
     }
 
-    // `uvm_object_utils_begin(dut_sequence_item_i)
-    //     `uvm_field_int(test_data,UVM_ALL_ON)
-    //     `uvm_field_int(di_gap,UVM_ALL_ON)
-    //     `uvm_field_int(di_i,UVM_ALL_ON)
-    //     `uvm_field_int(do_o,UVM_ALL_ON)
-    // `uvm_object_utils_end
-
     function new(string name = "dut_sequence_item_i");
         super.new(name);
     endfunction : new
 
-    //display only input of dut_if
-    function string display_i();
-        return $sformatf("alu_cmd[%X]; main_op:%02d,%02d; addr_op:%02d,%02d",
+    function string print();
+        return $sformatf("cmd[%X]; main_op:%Xd, %Xd; addr_op:%Xd, %Xd",
                 alu_cmd, alu_main_op1, alu_main_op2, alu_addr_op1, alu_addr_op2);
-    endfunction : display_i
+    endfunction : print
 
 endclass : dut_sequence_item_i
 
-//----------------------------------------------------------------------------------
-// IMPLEMENTATION
-//----------------------------------------------------------------------------------
-
-`endif //DUT_SEQUENCE_ITEM_SV
+`endif //____DUT_SEQUENCE_ITEM_SV__

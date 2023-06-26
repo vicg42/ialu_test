@@ -1,5 +1,5 @@
-`ifndef DUT_MONITOR_SV
-`define DUT_MONITOR_SV
+`ifndef __DUT_MONITOR_SV__
+`define __DUT_MONITOR_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -53,4 +53,4 @@ task dut_monitor::run_phase(uvm_phase phase);
     end
 endtask : run_phase
 
-`endif //DUT_MONITOR_SV
+`endif //__DUT_MONITOR_SV__

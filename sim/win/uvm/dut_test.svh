@@ -1,5 +1,5 @@
-`ifndef DUT_TEST_SV
-`define DUT_TEST_SV
+`ifndef __DUT_TEST_SV__
+`define __DUT_TEST_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -43,4 +43,4 @@ task dut_test::run_phase(uvm_phase phase);
 
 endtask : run_phase
 
-`endif //DUT_TEST_SV
+`endif //__DUT_TEST_SV__

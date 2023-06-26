@@ -1,5 +1,5 @@
-`ifndef DUT_DRIVER_SV
-`define DUT_DRIVER_SV
+`ifndef __DUT_DRIVER_SV__
+`define __DUT_DRIVER_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -46,7 +46,7 @@ task dut_driver::run_phase(uvm_phase phase);
 
     forever begin
         seq_item_port.get_next_item(seqi_wr); // Gets the seqi_wr from the sequence
-        uvm_report_info("", $sformatf("sequence_item: %s", seqi_wr.display_i));
+        // uvm_report_info("", $sformatf("sequence_item: %s", seqi_wr.print()));
 
         @(posedge dut_if_h.clk);
         dut_if_h.ialu_cmd_i      = seqi_wr.alu_cmd     ;
@@ -63,4 +63,4 @@ task dut_driver::run_phase(uvm_phase phase);
     end
 endtask : run_phase
 
-`endif //DUT_DRIVER_SV
+`endif //__DUT_DRIVER_SV__

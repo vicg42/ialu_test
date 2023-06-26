@@ -1,5 +1,5 @@
-`ifndef DUT_SEQUENCE_SV
-`define DUT_SEQUENCE_SV
+`ifndef __DUT_SEQUENCE_SV__
+`define __DUT_SEQUENCE_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -34,4 +34,4 @@ class dut_sequence extends uvm_sequence #(dut_sequence_item_i);
 
 endclass : dut_sequence
 
-`endif //DUT_SEQUENCE_SV
+`endif //__DUT_SEQUENCE_SV__

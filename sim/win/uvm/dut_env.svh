@@ -1,5 +1,5 @@
-`ifndef DUT_ENV_SV
-`define DUT_ENV_SV
+`ifndef __DUT_ENV_SV__
+`define __DUT_ENV_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -42,4 +42,4 @@ class dut_env extends uvm_env;
     // endfunction
 endclass
 
-`endif //DUT_ENV_SV
+`endif //__DUT_ENV_SV__

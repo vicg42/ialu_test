@@ -1,5 +1,5 @@
-`ifndef DUT_PKG_SV
-`define DUT_PKG_SV
+`ifndef __DUT_PKG_SV__
+`define __DUT_PKG_SV__
 
 package dut_package;
     import uvm_pkg::*; // [UVM] package
@@ -18,4 +18,4 @@ package dut_package;
 
 endpackage
 
-`endif
+`endif //__DUT_PKG_SV__

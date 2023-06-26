@@ -1,5 +1,5 @@
-`ifndef DUT_SCOREBOARD_SV
-`define DUT_SCOREBOARD_SV
+`ifndef __DUT_SCOREBOARD_SV__
+`define __DUT_SCOREBOARD_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -18,7 +18,7 @@ class dut_scoreboard extends uvm_scoreboard;
     uvm_analysis_imp_o #(dut_sequence_item_o, dut_scoreboard) analysis_port_o;
     dut_sequence_item_i queue_seqi_wr[$];
     dut_sequence_item_o queue_seqi_rd[$];
-    int test_failed_cnt = 0;
+    int failCnt = 0;
 
     function new (string name = "dut_scoreboard", uvm_component parent = null);
         super.new(name, parent);
@@ -32,7 +32,7 @@ class dut_scoreboard extends uvm_scoreboard;
 
     function void check_phase(uvm_phase phase); // [UVM]
         super.check_phase(phase);
-        if (test_failed_cnt != 0) begin
+        if (failCnt != 0) begin
             `uvm_error("", "TEST - FAILED");
         end else begin
             `uvm_info("", "TEST - PASSED", UVM_NONE);
@@ -54,7 +54,7 @@ endclass : dut_scoreboard
 // IMPLEMENTATION
 //-------------------------------------------------------------------------------------------------------------------------------
 function void dut_scoreboard::write_i(dut_sequence_item_i item);
-    // uvm_report_info("", $sformatf("sequence_item(i): %s", item.display_i));
+    // uvm_report_info("", $sformatf("sequence_item(i): %s", item.print()));
     queue_seqi_wr.push_back(item);
 endfunction : write_i
 
@@ -74,7 +74,7 @@ endfunction : write_o
 
 function void dut_scoreboard::check_data(dut_sequence_item_i seqi_wr, dut_sequence_item_o seqi_rd);
     // uvm_report_info("", $sformatf("sequence_item(ch): %s; main_result:%02d; addr_result:%02d",
-    //         seqi_wr.display_i, seqi_rd.alu_main_result, seqi_rd.alu_addr_result)
+    //         seqi_wr.print(), seqi_rd.alu_main_result, seqi_rd.alu_addr_result)
     // );
 
     bit [`SCR1_XLEN-1:0] predicted_alu_main_result;
@@ -109,7 +109,7 @@ function void dut_scoreboard::check_data(dut_sequence_item_i seqi_wr, dut_sequen
                         predicted_alu_addr_result, seqi_rd.alu_addr_result)
                     );
         end
-        test_failed_cnt++;
+        failCnt++;
 
     end else begin
         `uvm_info("PASSED", $sformatf("ALU_CMD [%s]", seqi_rd.get_alu_cmd_name(seqi_rd.alu_cmd)), UVM_NONE);
@@ -582,4 +582,4 @@ function bit [`SCR1_XLEN-1:0]  dut_scoreboard::predicted_alu_addr_result_calc(du
     return ialu2exu_addr_res_o;
 endfunction : predicted_alu_addr_result_calc
 
-`endif //DUT_SCOREBOARD_SV
+`endif //__DUT_SCOREBOARD_SV__

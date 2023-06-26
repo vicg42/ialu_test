@@ -1,5 +1,5 @@
-`ifndef DUT_SEQUENCE_ITEM_O_SV
-`define DUT_SEQUENCE_ITEM_O_SV
+`ifndef __DUT_SEQUENCE_ITEM_O_SV__
+`define __DUT_SEQUENCE_ITEM_O_SV__
 
 import uvm_pkg::*;            // [UVM] package
 `include "uvm_macros.svh"     // [UVM] macroses
@@ -18,22 +18,14 @@ class dut_sequence_item_o extends uvm_sequence_item;
     bit                 alu_cmp_result;
     // bit                 alu_rvm_res_rdy;
 
-    // `uvm_object_utils_begin(dut_sequence_item_o)
-    //     `uvm_field_int(test_data,UVM_ALL_ON)
-    //     `uvm_field_int(di_gap,UVM_ALL_ON)
-    //     `uvm_field_int(di_i,UVM_ALL_ON)
-    //     `uvm_field_int(do_o,UVM_ALL_ON)
-    // `uvm_object_utils_end
-
     function new(string name = "dut_sequence_item_o");
         super.new(name);
     endfunction : new
 
-    //display only output of dut_if
-    function string display_o();
-        return $sformatf("alu_cmd[%X]; main_result:%02d; cmp_result:%02d; addr_result:%02d",
+    function string print();
+        return $sformatf("cmd[%X]; main_result:%X; cmp_result:%X; addr_result:%X",
                 alu_cmd, alu_main_result, alu_cmp_result, alu_addr_result);
-    endfunction : display_o
+    endfunction : print
 
     function string get_alu_cmd_name(bit [$bits(type_scr1_ialu_cmd_sel_e)-1:0] alu_cmd);
         string cmd_name;
@@ -73,8 +65,4 @@ class dut_sequence_item_o extends uvm_sequence_item;
 
 endclass : dut_sequence_item_o
 
-//----------------------------------------------------------------------------------
-// IMPLEMENTATION
-//----------------------------------------------------------------------------------
-
-`endif //DUT_SEQUENCE_ITEM_O_SV
+`endif //__DUT_SEQUENCE_ITEM_O_SV__
