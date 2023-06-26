@@ -112,7 +112,7 @@ function void dut_scoreboard::check_data(dut_sequence_item_i seqi_wr, dut_sequen
         test_failed_cnt++;
 
     end else begin
-        `uvm_info("PASSED", $sformatf("ALU_CMD: %s", seqi_rd.get_str_alu_cmd(seqi_rd.alu_cmd)), UVM_NONE);
+        `uvm_info("PASSED", $sformatf("ALU_CMD [%s]", seqi_rd.get_alu_cmd_name(seqi_rd.alu_cmd)), UVM_NONE);
     end
 
 endfunction : check_data

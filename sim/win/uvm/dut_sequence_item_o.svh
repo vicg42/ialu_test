@@ -35,71 +35,41 @@ class dut_sequence_item_o extends uvm_sequence_item;
                 alu_cmd, alu_main_result, alu_cmp_result, alu_addr_result);
     endfunction : display_o
 
-    function string get_str_alu_cmd(bit [$bits(type_scr1_ialu_cmd_sel_e)-1:0] alu_cmd);
-        string str_alu_cmd;
+    function string get_alu_cmd_name(bit [$bits(type_scr1_ialu_cmd_sel_e)-1:0] alu_cmd);
+        string cmd_name;
         case (alu_cmd)
-            SCR1_IALU_CMD_NONE : begin
-                str_alu_cmd = "CMD_NONE";
-            end
-            SCR1_IALU_CMD_AND : begin
-                str_alu_cmd = "CMD_AND";
-            end
-            SCR1_IALU_CMD_OR : begin
-                str_alu_cmd = "CMD_OR";
-            end
-            SCR1_IALU_CMD_XOR : begin
-                str_alu_cmd = "CMD_XOR";
-            end
-            SCR1_IALU_CMD_ADD : begin
-                str_alu_cmd = "CMD_ADD";
-            end
-            SCR1_IALU_CMD_SUB : begin
-                str_alu_cmd = "CMD_SUB";
-            end
-            SCR1_IALU_CMD_SUB_LT : begin
-                str_alu_cmd = "CMD_SUB_LT";
-            end
-            SCR1_IALU_CMD_SUB_LTU : begin
-                str_alu_cmd = "CMD_SUB_LTU";
-            end
-            SCR1_IALU_CMD_SUB_EQ : begin
-                str_alu_cmd = "CMD_SUB_EQ";
-            end
-            SCR1_IALU_CMD_SUB_NE : begin
-                str_alu_cmd = "CMD_SUB_NE";
-            end
-            SCR1_IALU_CMD_SUB_GE : begin
-                str_alu_cmd = "CMD_SUB_GE";
-            end
-            SCR1_IALU_CMD_SUB_GEU : begin
-                str_alu_cmd = "CMD_SUB_GEU";
-            end
-            SCR1_IALU_CMD_SLL : begin
-                str_alu_cmd = "CMD_SLL";
-            end
-            SCR1_IALU_CMD_SRL : begin
-                str_alu_cmd = "CMD_SRL";
-            end
-            SCR1_IALU_CMD_SRA : begin
-                str_alu_cmd = "CMD_SRA";
-            end
+            SCR1_IALU_CMD_NONE    : begin cmd_name = "NONE   "; end
+            SCR1_IALU_CMD_AND     : begin cmd_name = "AND    "; end
+            SCR1_IALU_CMD_OR      : begin cmd_name = "OR     "; end
+            SCR1_IALU_CMD_XOR     : begin cmd_name = "XOR    "; end
+            SCR1_IALU_CMD_ADD     : begin cmd_name = "ADD    "; end
+            SCR1_IALU_CMD_SUB     : begin cmd_name = "SUB    "; end
+            SCR1_IALU_CMD_SUB_LT  : begin cmd_name = "SUB_LT "; end
+            SCR1_IALU_CMD_SUB_LTU : begin cmd_name = "SUB_LTU"; end
+            SCR1_IALU_CMD_SUB_EQ  : begin cmd_name = "SUB_EQ "; end
+            SCR1_IALU_CMD_SUB_NE  : begin cmd_name = "SUB_NE "; end
+            SCR1_IALU_CMD_SUB_GE  : begin cmd_name = "SUB_GE "; end
+            SCR1_IALU_CMD_SUB_GEU : begin cmd_name = "SUB_GEU"; end
+            SCR1_IALU_CMD_SLL     : begin cmd_name = "SLL    "; end
+            SCR1_IALU_CMD_SRL     : begin cmd_name = "SRL    "; end
+            SCR1_IALU_CMD_SRA     : begin cmd_name = "SRA    "; end
             // `ifdef SCR1_RVM_EXT
             // ,
-            // SCR1_IALU_CMD_MUL     ,    // low(unsig(op1) * unsig(op2))
-            // SCR1_IALU_CMD_MULHU   ,    // high(unsig(op1) * unsig(op2))
-            // SCR1_IALU_CMD_MULHSU  ,    // high(op1 * unsig(op2))
-            // SCR1_IALU_CMD_MULH    ,    // high(op1 * op2)
-            // SCR1_IALU_CMD_DIV     ,    // op1 / op2
-            // SCR1_IALU_CMD_DIVU    ,    // op1 u/ op2
-            // SCR1_IALU_CMD_REM     ,    // op1 % op2
-            // SCR1_IALU_CMD_REMU         // op1 u% op2
+            // SCR1_IALU_CMD_MUL     : begin cmd_name = "MUL   "; end
+            // SCR1_IALU_CMD_MULHU   : begin cmd_name = "MULHU "; end
+            // SCR1_IALU_CMD_MULHSU  : begin cmd_name = "MULHSU"; end
+            // SCR1_IALU_CMD_MULH    : begin cmd_name = "MULH  "; end
+            // SCR1_IALU_CMD_DIV     : begin cmd_name = "DIV   "; end
+            // SCR1_IALU_CMD_DIVU    : begin cmd_name = "DIVU  "; end
+            // SCR1_IALU_CMD_REM     : begin cmd_name = "REM   "; end
+            // SCR1_IALU_CMD_REMU    : begin cmd_name = "REMU  "; end
             // `endif  // SCR1_RVM_EXT
             default : begin
-                str_alu_cmd = "BAD_CMD";
+                cmd_name = "BAD_CMD";
             end
         endcase
-        return $sformatf("%s", str_alu_cmd);
-    endfunction : get_str_alu_cmd
+        return $sformatf("%s", cmd_name);
+    endfunction : get_alu_cmd_name
 
 endclass : dut_sequence_item_o
 
