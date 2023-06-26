@@ -23,11 +23,13 @@ vlog ./uvm/dut_env.svh -sv +incdir+../../src/includes
 vlog ./uvm/dut_test.svh -sv +incdir+../../src/includes
 vlog ../../src/tb/scr1_pipe_ialu_tb_uvm.sv -sv +incdir+../../src/includes +incdir+./uvm
 
-vsim -t 1ps -novopt +notimingchecks -lib work +UVM_NO_RELNOTES +UVM_VERBOSITY=UVM_MEDIUM scr1_pipe_ialu_tb_uvm
+vsim -coverage -t 1ps -novopt +notimingchecks -lib work +UVM_NO_RELNOTES +UVM_VERBOSITY=UVM_MEDIUM scr1_pipe_ialu_tb_uvm
 
 do modelsim_tb_uvm_wave.do
 view wave
 #config wave -timelineunits us
 view structure
 view signals
+coverage save -onexit TEST.ucdb
+vcover report -html TEST.ucdb
 run 5us
