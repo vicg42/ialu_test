@@ -119,7 +119,7 @@
 
 // RISC-V ISA options
 //`define SCR1_RVE_EXT                // enable RV32E base integer instruction set, otherwise RV32I will be used
-`define SCR1_RVM_EXT                // enable standard extension "M" for integer hardware multiplier and divider
+// `define SCR1_RVM_EXT                // enable standard extension "M" for integer hardware multiplier and divider
 `define SCR1_RVC_EXT                // enable standard extension "C" for compressed instructions
 parameter int unsigned SCR1_MTVEC_BASE_WR_BITS = 26;    // number of writable high-order bits in MTVEC.base field
                                                             // legal values are 0 to 26

@@ -6,8 +6,8 @@ if [file exists work] {
     vdel -all
 }
 vlib work
-#+define+SCR1_CFG_RV32IMC_MAX
-vlog ../../src/core/pipeline/scr1_pipe_ialu.sv -sv +incdir+../../src/includes +define+SCR1_IALU_SIM
+#+define+SCR1_CFG_RV32IMC_MAX +define+SCR1_RVM_EXT
+vlog +cover ../../src/core/pipeline/scr1_pipe_ialu.sv -sv +incdir+../../src/includes +define+SCR1_IALU_SIM
 vlog ./uvm/dut_if.sv -sv +incdir+../../src/includes
 #vlog ./uvm/dut_package.sv -sv
 
