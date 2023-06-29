@@ -1,0 +1,1036 @@
+Coverage Report by file with details
+
+=================================================================================
+=== File: ../../src/core/pipeline/scr1_pipe_ialu.sv
+=================================================================================
+Statement Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Stmts                           38        38         0     100.0
+
+================================Statement Details================================
+
+Statement Coverage for file ../../src/core/pipeline/scr1_pipe_ialu.sv --
+
+    1                                                /// Copyright by Syntacore LLC © 2016-2021. See LICENSE for details
+    2                                                /// @file       <scr1_pipe_ialu.sv>
+    3                                                /// @brief      Integer Arithmetic Logic Unit (IALU)
+    4                                                ///
+    5                                                
+    6                                                //-------------------------------------------------------------------------------
+    7                                                 //
+    8                                                 // Functionality:
+    9                                                 // - Performs addition/subtraction and arithmetic and branch comparisons
+    10                                                // - Performs logical operations (AND(I), OR(I), XOR(I))
+    11                                                // - Performs address calculation for branch, jump, DMEM load and store and AUIPC
+    12                                                //   instructions
+    13                                                // - Performs shift operations
+    14                                                // - Performs MUL/DIV operations
+    15                                                //
+    16                                                // Structure:
+    17                                                // - Main adder
+    18                                                // - Address adder
+    19                                                // - Shift logic
+    20                                                // - MUL/DIV logic
+    21                                                // - Output result multiplexer
+    22                                                //
+    23                                               //-------------------------------------------------------------------------------
+    24                                               
+    25                                               `include "scr1_arch_description.svh"
+    26                                               `include "scr1_riscv_isa_decoding.svh"
+    27                                               `include "scr1_search_ms1.svh"
+    28                                               
+    29                                               
+    30                                               module scr1_pipe_ialu (
+    31                                               `ifdef SCR1_RVM_EXT
+    32                                                   // Common
+    33                                                   input   logic                           clk,                        // IALU clock
+    34                                                   input   logic                           rst_n,                      // IALU reset
+    35                                                   input   logic                           exu2ialu_rvm_cmd_vd_i,      // MUL/DIV command valid
+    36                                                   output  logic                           ialu2exu_rvm_res_rdy_o,     // MUL/DIV result ready
+    37                                               `endif // SCR1_RVM_EXT
+    38                                               
+    39                                                   // Main adder
+    40                                                   input   logic [`SCR1_XLEN-1:0]          exu2ialu_main_op1_i,        // main ALU 1st operand
+    41                                                   input   logic [`SCR1_XLEN-1:0]          exu2ialu_main_op2_i,        // main ALU 2nd operand
+    42                                                   input   type_scr1_ialu_cmd_sel_e        exu2ialu_cmd_i,             // IALU command
+    43                                                   output  logic [`SCR1_XLEN-1:0]          ialu2exu_main_res_o,        // main ALU result
+    44                                                   output  logic                           ialu2exu_cmp_res_o,         // IALU comparison result
+    45                                               
+    46                                                   // Address adder
+    47                                                   input   logic [`SCR1_XLEN-1:0]          exu2ialu_addr_op1_i,        // Address adder 1st operand
+    48                                                   input   logic [`SCR1_XLEN-1:0]          exu2ialu_addr_op2_i,        // Address adder 2nd operand
+    49                                                   output  logic [`SCR1_XLEN-1:0]          ialu2exu_addr_res_o         // Address adder result
+    50                                               );
+    51                                               
+    52                                               //-------------------------------------------------------------------------------
+    53                                               // Local parameters declaration
+    54                                               //-------------------------------------------------------------------------------
+    55                                               
+    56                                               `ifdef SCR1_RVM_EXT
+    57                                                `ifdef SCR1_FAST_MUL
+    58                                               localparam SCR1_MUL_WIDTH     = `SCR1_XLEN;
+    59                                               localparam SCR1_MUL_RES_WIDTH = 2 * `SCR1_XLEN;
+    60                                               localparam SCR1_MDU_SUM_WIDTH = `SCR1_XLEN + 1;
+    61                                                `else
+    62                                               localparam SCR1_MUL_STG_NUM   = 32;
+    63                                               localparam SCR1_MUL_WIDTH     = 32 / SCR1_MUL_STG_NUM;
+    64                                               localparam SCR1_MUL_CNT_INIT  = 32'b1 << (`SCR1_XLEN/SCR1_MUL_WIDTH - 2);
+    65                                               localparam SCR1_MDU_SUM_WIDTH = `SCR1_XLEN + SCR1_MUL_WIDTH;
+    66                                                `endif // ~SCR1_FAST_MUL
+    67                                               localparam SCR1_DIV_WIDTH     = 1;
+    68                                               localparam SCR1_DIV_CNT_INIT  = 32'b1 << (`SCR1_XLEN/SCR1_DIV_WIDTH - 2);
+    69                                               `endif // SCR1_RVM_EXT
+    70                                               
+    71                                               //-------------------------------------------------------------------------------
+    72                                               // Local types declaration
+    73                                               //-------------------------------------------------------------------------------
+    74                                               
+    75                                               typedef struct packed {
+    76                                                   logic       z;      // Zero
+    77                                                   logic       s;      // Sign
+    78                                                   logic       o;      // Overflow
+    79                                                   logic       c;      // Carry
+    80                                               } type_scr1_ialu_flags_s;
+    81                                               
+    82                                                `ifdef SCR1_RVM_EXT
+    83                                               typedef enum logic [1:0] {
+    84                                                   SCR1_IALU_MDU_FSM_IDLE,
+    85                                                   SCR1_IALU_MDU_FSM_ITER,
+    86                                                   SCR1_IALU_MDU_FSM_CORR
+    87                                               } type_scr1_ialu_fsm_state;
+    88                                               
+    89                                               typedef enum logic [1:0] {
+    90                                                  SCR1_IALU_MDU_NONE,
+    91                                                  SCR1_IALU_MDU_MUL,
+    92                                                  SCR1_IALU_MDU_DIV
+    93                                               } type_scr1_ialu_mdu_cmd;
+    94                                                `endif // SCR1_RVM_EXT
+    95                                               
+    96                                               //-------------------------------------------------------------------------------
+    97                                               // Local signals declaration
+    98                                               //-------------------------------------------------------------------------------
+    99                                               
+    100                                              // Main adder signals
+    101                                              logic        [`SCR1_XLEN:0]                 main_sum_res;       // Main adder result
+    102                                              type_scr1_ialu_flags_s                      main_sum_flags;     // Main adder flags
+    103                                              logic                                       main_sum_pos_ovflw; // Main adder positive overflow
+    104                                              logic                                       main_sum_neg_ovflw; // Main adder negative overflow
+    105                                              logic                                       main_ops_diff_sgn;  // Main adder operands have different signs
+    106                                              logic                                       main_ops_non_zero;  // Both main adder operands are NOT 0
+    107                                              
+    108                                              // Shifter signals
+    109                                              logic                                       ialu_cmd_shft;      // IALU command is shift
+    110                                              logic signed [`SCR1_XLEN-1:0]               shft_op1;           // SHIFT operand 1
+    111                                              logic        [4:0]                          shft_op2;           // SHIFT operand 2
+    112                                              logic        [1:0]                          shft_cmd;           // SHIFT command: 00 - logical left, 10 - logical right, 11 - arithmetical right
+    113                                              logic        [`SCR1_XLEN-1:0]               shft_res;           // SHIFT result
+    114                                              
+    115                                              // MUL/DIV signals
+    116                                              `ifdef SCR1_RVM_EXT
+    117                                              // MUL/DIV FSM control signals
+    118                                              logic                                       mdu_cmd_is_iter;    // MDU Command is iterative
+    119                                              logic                                       mdu_iter_req;       // Request iterative stage
+    120                                              logic                                       mdu_iter_rdy;       // Iteration is ready
+    121                                              logic                                       mdu_corr_req;       // DIV/REM(U) correction request
+    122                                              logic                                       div_corr_req;       // Correction request for DIV operation
+    123                                              logic                                       rem_corr_req;       // Correction request for REM(U) operations
+    124                                              
+    125                                              // MUL/DIV FSM signals
+    126                                              type_scr1_ialu_fsm_state                    mdu_fsm_ff;         // Current FSM state
+    127                                              type_scr1_ialu_fsm_state                    mdu_fsm_next;       // Next FSM state
+    128                                              logic                                       mdu_fsm_idle;       // MDU FSM is in IDLE state
+    129                                              `ifdef SCR1_TRGT_SIMULATION
+    130                                              logic                                       mdu_fsm_iter;       // MDU FSM is in ITER state
+    131                                              `endif // SCR1_TRGT_SIMULATION
+    132                                              logic                                       mdu_fsm_corr;       // MDU FSM is in CORR state
+    133                                              
+    134                                              // MDU command signals
+    135                                              type_scr1_ialu_mdu_cmd                      mdu_cmd;            // MDU command: 00 - NONE, 01 - MUL,  10 - DIV
+    136                                              logic                                       mdu_cmd_mul;        // MDU command is MUL(HSU)
+    137                                              logic                                       mdu_cmd_div;        // MDU command is DIV(U)/REM(U)
+    138                                              logic        [1:0]                          mul_cmd;            // MUL command: 00 - MUL,  01 - MULH, 10 - MULHSU, 11 - MULHU
+    139                                              logic                                       mul_cmd_hi;         // High part of MUL result is requested
+    140                                              logic        [1:0]                          div_cmd;            // DIV command: 00 - DIV,  01 - DIVU, 10 - REM,    11 - REMU
+    141                                              logic                                       div_cmd_div;        // DIV command is DIV
+    142                                              logic                                       div_cmd_rem;        // DIV command is REM(U)
+    143                                              
+    144                                              // Multiplier signals
+    145                                              logic                                       mul_op1_is_sgn;     // First MUL operand is signed
+    146                                              logic                                       mul_op2_is_sgn;     // Second MUL operand is signed
+    147                                              logic                                       mul_op1_sgn;        // First MUL operand is negative
+    148                                              logic                                       mul_op2_sgn;        // Second MUL operand is negative
+    149                                              logic signed [`SCR1_XLEN:0]                 mul_op1;            // MUL operand 1
+    150                                              logic signed [SCR1_MUL_WIDTH:0]             mul_op2;            // MUL operand 1
+    151                                               `ifdef SCR1_FAST_MUL
+    152                                              logic signed [SCR1_MUL_RES_WIDTH-1:0]       mul_res;            // MUL result
+    153                                               `else // ~SCR1_FAST_MUL
+    154                                              logic signed [SCR1_MDU_SUM_WIDTH:0]         mul_part_prod;
+    155                                              logic        [`SCR1_XLEN-1:0]               mul_res_hi;
+    156                                              logic        [`SCR1_XLEN-1:0]               mul_res_lo;
+    157                                               `endif // ~SCR1_FAST_MUL
+    158                                              
+    159                                              // Divisor signals
+    160                                              logic                                       div_ops_are_sgn;
+    161                                              logic                                       div_op1_is_neg;
+    162                                              logic                                       div_op2_is_neg;
+    163                                              logic                                       div_res_rem_c;
+    164                                              logic        [`SCR1_XLEN-1:0]               div_res_rem;
+    165                                              logic        [`SCR1_XLEN-1:0]               div_res_quo;
+    166                                              logic                                       div_quo_bit;
+    167                                              logic                                       div_dvdnd_lo_upd;
+    168                                              logic        [`SCR1_XLEN-1:0]               div_dvdnd_lo_ff;
+    169                                              logic        [`SCR1_XLEN-1:0]               div_dvdnd_lo_next;
+    170                                              
+    171                                              // MDU adder signals
+    172                                              logic                                       mdu_sum_sub;        // MDU adder operation: 0 - add, 1 - sub
+    173                                              logic signed [SCR1_MDU_SUM_WIDTH-1:0]       mdu_sum_op1;        // MDU adder operand 1
+    174                                              logic signed [SCR1_MDU_SUM_WIDTH-1:0]       mdu_sum_op2;        // MDU adder operand 2
+    175                                              logic signed [SCR1_MDU_SUM_WIDTH-1:0]       mdu_sum_res;        // MDU adder result
+    176                                              
+    177                                              // MDU iteration counter signals
+    178                                              logic                                       mdu_iter_cnt_en;
+    179                                              logic        [`SCR1_XLEN-1:0]               mdu_iter_cnt;
+    180                                              logic        [`SCR1_XLEN-1:0]               mdu_iter_cnt_next;
+    181                                              
+    182                                              // Intermediate results registers
+    183                                              logic                                       mdu_res_upd;
+    184                                              logic                                       mdu_res_c_ff;
+    185                                              logic                                       mdu_res_c_next;
+    186                                              logic        [`SCR1_XLEN-1:0]               mdu_res_hi_ff;
+    187                                              logic        [`SCR1_XLEN-1:0]               mdu_res_hi_next;
+    188                                              logic        [`SCR1_XLEN-1:0]               mdu_res_lo_ff;
+    189                                              logic        [`SCR1_XLEN-1:0]               mdu_res_lo_next;
+    190                                              `endif // SCR1_RVM_EXT
+    191                                              
+    192                                              //-------------------------------------------------------------------------------
+    193                                              // Main adder
+    194                                              //-------------------------------------------------------------------------------
+    195                                              //
+    196                                               // Main adder is used for the following types of operations:
+    197                                               // - Addition/subtraction          (ADD/ADDI/SUB)
+    198                                               // - Branch comparisons            (BEQ/BNE/BLT(U)/BGE(U))
+    199                                               // - Arithmetic comparisons        (SLT(U)/SLTI(U))
+    200                                              //
+    201                                              
+    202                                              // Carry out (MSB of main_sum_res) is evaluated correctly because the result
+    203                                              // width equals to the maximum width of both the right-hand and left-hand side variables
+    204             1                        302     always_comb begin
+    205                                                  main_sum_res = (exu2ialu_cmd_i != SCR1_IALU_CMD_ADD)
+    206                                                               ? ({1'b0, exu2ialu_main_op1_i} - {1'b0, exu2ialu_main_op2_i})   // Subtraction and comparison
+    207             1                        302                      : ({1'b0, exu2ialu_main_op1_i} + {1'b0, exu2ialu_main_op2_i});  // Addition
+    208                                              
+    209                                                  main_sum_pos_ovflw = ~exu2ialu_main_op1_i[`SCR1_XLEN-1]
+    210                                                                     &  exu2ialu_main_op2_i[`SCR1_XLEN-1]
+    211             1                        302                            &  main_sum_res[`SCR1_XLEN-1];
+    212                                                  main_sum_neg_ovflw =  exu2ialu_main_op1_i[`SCR1_XLEN-1]
+    213                                                                     & ~exu2ialu_main_op2_i[`SCR1_XLEN-1]
+    214             1                        302                            & ~main_sum_res[`SCR1_XLEN-1];
+    215                                              
+    216                                                  // FLAGS1 - flags for comparison (result of subtraction)
+    217             1                        302         main_sum_flags.c = main_sum_res[`SCR1_XLEN];
+    218             1                        302         main_sum_flags.z = ~|main_sum_res[`SCR1_XLEN-1:0];
+    219             1                        302         main_sum_flags.s = main_sum_res[`SCR1_XLEN-1];
+    220             1                        302         main_sum_flags.o = main_sum_pos_ovflw | main_sum_neg_ovflw;
+    221                                              end
+    222                                              
+    223                                              //-------------------------------------------------------------------------------
+    224                                              // Address adder
+    225                                              //-------------------------------------------------------------------------------
+    226                                              //
+    227                                               // Additional adder is used for the following types of operations:
+    228                                               // - PC-based address calculation          (AUIPC)
+    229                                               // - IMEM branch address calculation       (BEQ/BNE/BLT(U)/BGE(U))
+    230                                               // - IMEM jump address calculation         (JAL/JALR)
+    231                                               // - DMEM load address calculation         (LB(U)/LH(U)/LW)
+    232                                               // - DMEM store address calculation        (SB/SH/SW)
+    233                                              //
+    234                                              
+    235             1                        302     assign ialu2exu_addr_res_o = exu2ialu_addr_op1_i + exu2ialu_addr_op2_i;
+    236                                              
+    237                                              //-------------------------------------------------------------------------------
+    238                                              // Shift logic
+    239                                              //-------------------------------------------------------------------------------
+    240                                               //
+    241                                               // Shift logic supports the following types of shift operations:
+    242                                               // - Logical left shift      (SLLI/SLL)
+    243                                               // - Logical right shift     (SRLI/SRL)
+    244                                               // - Arithmetic right shift  (SRAI/SRA)
+    245                                              //
+    246                                              
+    247             1                        282     assign ialu_cmd_shft = (exu2ialu_cmd_i == SCR1_IALU_CMD_SLL)
+    248                                                                   | (exu2ialu_cmd_i == SCR1_IALU_CMD_SRL)
+    249                                                                   | (exu2ialu_cmd_i == SCR1_IALU_CMD_SRA);
+    250             1                        282     assign shft_cmd      = ialu_cmd_shft
+    251                                                                   ? {(exu2ialu_cmd_i != SCR1_IALU_CMD_SLL),
+    252                                                                      (exu2ialu_cmd_i == SCR1_IALU_CMD_SRA)}
+    253                                                                   : 2'b00;
+    254                                              
+    255             1                        302     always_comb begin
+    256             1                        302         shft_op1 = exu2ialu_main_op1_i;
+    257             1                        302         shft_op2 = exu2ialu_main_op2_i[4:0];
+    258                                                  case (shft_cmd)
+    259             1                         29             2'b10   : shft_res = shft_op1  >> shft_op2;
+    260             1                         24             2'b11   : shft_res = shft_op1 >>> shft_op2;
+    261             1                        249             default : shft_res = shft_op1  << shft_op2;
+    262                                                  endcase
+    263                                              end
+    264                                              
+    265                                              `ifdef SCR1_RVM_EXT
+    266                                              //-------------------------------------------------------------------------------
+    267                                              // MUL/DIV logic
+    268                                              //-------------------------------------------------------------------------------
+    269                                              //
+    270                                               // MUL/DIV instructions use the following functional units:
+    271                                               // - MUL/DIV FSM control logic, including iteration number counter
+    272                                               // - MUL/DIV FSM
+    273                                               // - MUL logic
+    274                                               // - DIV logic
+    275                                               // - MDU adder to produce an intermediate result
+    276                                               // - 2 registers to save the intermediate result (shared between MUL and DIV
+    277                                               //   operations)
+    278                                              //
+    279                                              
+    280                                              //-------------------------------------------------------------------------------
+    281                                              // MUL/DIV FSM Control logic
+    282                                              //-------------------------------------------------------------------------------
+    283                                              
+    284                                              assign mdu_cmd_div = (exu2ialu_cmd_i == SCR1_IALU_CMD_DIV)
+    285                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_DIVU)
+    286                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_REM)
+    287                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_REMU);
+    288                                              assign mdu_cmd_mul = (exu2ialu_cmd_i == SCR1_IALU_CMD_MUL)
+    289                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_MULH)
+    290                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_MULHU)
+    291                                                                 | (exu2ialu_cmd_i == SCR1_IALU_CMD_MULHSU);
+    292                                              
+    293                                              assign mdu_cmd     = mdu_cmd_div ? SCR1_IALU_MDU_DIV
+    294                                                                 : mdu_cmd_mul ? SCR1_IALU_MDU_MUL
+    295                                                                               : SCR1_IALU_MDU_NONE;
+    296                                              
+    297                                              assign main_ops_non_zero = |exu2ialu_main_op1_i & |exu2ialu_main_op2_i;
+    298                                              assign main_ops_diff_sgn = exu2ialu_main_op1_i[`SCR1_XLEN-1]
+    299                                                                       ^ exu2ialu_main_op2_i[`SCR1_XLEN-1];
+    300                                              
+    301                                               `ifdef SCR1_FAST_MUL
+    302                                                  assign mdu_cmd_is_iter = mdu_cmd_div;
+    303                                               `else // ~SCR1_FAST_MUL
+    304                                                  assign mdu_cmd_is_iter = mdu_cmd_mul | mdu_cmd_div;
+    305                                               `endif // ~SCR1_FAST_MUL
+    306                                              
+    307                                              assign mdu_iter_req = mdu_cmd_is_iter ? (main_ops_non_zero & mdu_fsm_idle) : 1'b0;
+    308                                              assign mdu_iter_rdy = mdu_iter_cnt[0];
+    309                                              
+    310                                              assign div_cmd_div = (div_cmd == 2'b00);
+    311                                              assign div_cmd_rem = div_cmd[1];
+    312                                              
+    313                                              // Correction request signals
+    314                                              assign div_corr_req = div_cmd_div & main_ops_diff_sgn;
+    315                                              assign rem_corr_req = div_cmd_rem & |div_res_rem & (div_op1_is_neg ^ div_res_rem_c);
+    316                                              assign mdu_corr_req = mdu_cmd_div & (div_corr_req | rem_corr_req);
+    317                                              
+    318                                              // MDU iteration counter
+    319                                              //------------------------------------------------------------------------------
+    320                                              
+    321                                              assign mdu_iter_cnt_en = exu2ialu_rvm_cmd_vd_i & ~ialu2exu_rvm_res_rdy_o;
+    322                                              
+    323                                              always_ff @(posedge clk) begin
+    324                                                  if (mdu_iter_cnt_en) begin
+    325                                                      mdu_iter_cnt <= mdu_iter_cnt_next;
+    326                                                  end
+    327                                              end
+    328                                              
+    329                                              assign mdu_iter_cnt_next = ~mdu_fsm_idle ? mdu_iter_cnt >> 1
+    330                                                                       : mdu_cmd_div   ? SCR1_DIV_CNT_INIT
+    331                                               `ifndef SCR1_FAST_MUL
+    332                                                                       : mdu_cmd_mul   ? SCR1_MUL_CNT_INIT
+    333                                               `endif // ~SCR1_FAST_MUL
+    334                                                                                       : mdu_iter_cnt;
+    335                                              
+    336                                              //-------------------------------------------------------------------------------
+    337                                              // MUL/DIV FSM
+    338                                              //-------------------------------------------------------------------------------
+    339                                              
+    340                                              always_ff @(posedge clk, negedge rst_n) begin
+    341                                                  if (~rst_n) begin
+    342                                                      mdu_fsm_ff <= SCR1_IALU_MDU_FSM_IDLE;
+    343                                                  end else begin
+    344                                                      mdu_fsm_ff <= mdu_fsm_next;
+    345                                                  end
+    346                                              end
+    347                                              
+    348                                              always_comb begin
+    349                                                  mdu_fsm_next = SCR1_IALU_MDU_FSM_IDLE;
+    350                                              
+    351                                                  if (exu2ialu_rvm_cmd_vd_i) begin
+    352                                                      case (mdu_fsm_ff)
+    353                                                          SCR1_IALU_MDU_FSM_IDLE : begin
+    354                                                              mdu_fsm_next = mdu_iter_req  ? SCR1_IALU_MDU_FSM_ITER
+    355                                                                                           : SCR1_IALU_MDU_FSM_IDLE;
+    356                                                          end
+    357                                                          SCR1_IALU_MDU_FSM_ITER : begin
+    358                                                              mdu_fsm_next = ~mdu_iter_rdy ? SCR1_IALU_MDU_FSM_ITER
+    359                                                                           : mdu_corr_req  ? SCR1_IALU_MDU_FSM_CORR
+    360                                                                                           : SCR1_IALU_MDU_FSM_IDLE;
+    361                                                          end
+    362                                                          SCR1_IALU_MDU_FSM_CORR : begin
+    363                                                              mdu_fsm_next = SCR1_IALU_MDU_FSM_IDLE;
+    364                                                          end
+    365                                                      endcase
+    366                                                  end
+    367                                              end
+    368                                              
+    369                                              assign mdu_fsm_idle = (mdu_fsm_ff == SCR1_IALU_MDU_FSM_IDLE);
+    370                                              `ifdef SCR1_TRGT_SIMULATION
+    371                                              assign mdu_fsm_iter = (mdu_fsm_ff == SCR1_IALU_MDU_FSM_ITER);
+    372                                              `endif // SCR1_TRGT_SIMULATION
+    373                                              assign mdu_fsm_corr = (mdu_fsm_ff == SCR1_IALU_MDU_FSM_CORR);
+    374                                              
+    375                                              //-------------------------------------------------------------------------------
+    376                                              // Multiplier logic
+    377                                              //-------------------------------------------------------------------------------
+    378                                              //
+    379                                               // Multiplication has 2 options: fast (1 cycle) and Radix-2 (32 cycles) multiplication.
+    380                                               //
+    381                                               // 1. Fast multiplication uses the straightforward approach when 2 operands are
+    382                                               // multiplied in one cycle
+    383                                               //
+    384                                               // 2. Radix-2 multiplication uses 2 registers (high and low part of multiplication)
+    385                                               //
+    386                                               // Radix-2 algorithm:
+    387                                               // 1. Initialize registers
+    388                                               // 2. Create a partial product by multiplying multiplicand by the LSB of multiplier
+    389                                               // 3. Add the partial product to the previous (intermediate) value of multiplication
+    390                                               //    result (stored into high and low parts of multiplication result register)
+    391                                               // 4. Shift the low part of multiplication result register right
+    392                                               // 4. Store the addition result into the high part of multiplication result register
+    393                                               // 6. If iteration is not ready, go to step 2. Otherwise multiplication is done
+    394                                               //
+    395                                              //
+    396                                              
+    397                                              assign mul_cmd  = {((exu2ialu_cmd_i == SCR1_IALU_CMD_MULHU) | (exu2ialu_cmd_i == SCR1_IALU_CMD_MULHSU)),
+    398                                                                 ((exu2ialu_cmd_i == SCR1_IALU_CMD_MULHU) | (exu2ialu_cmd_i == SCR1_IALU_CMD_MULH))};
+    399                                              
+    400                                              assign mul_cmd_hi     = |mul_cmd;
+    401                                              assign mul_op1_is_sgn = ~&mul_cmd;
+    402                                              assign mul_op2_is_sgn = ~mul_cmd[1];
+    403                                              assign mul_op1_sgn    = mul_op1_is_sgn & exu2ialu_main_op1_i[`SCR1_XLEN-1];
+    404                                              assign mul_op2_sgn    = mul_op2_is_sgn & exu2ialu_main_op2_i[`SCR1_XLEN-1];
+    405                                              
+    406                                              `ifdef SCR1_FAST_MUL
+    407                                              assign mul_op1 = mdu_cmd_mul ? $signed({mul_op1_sgn, exu2ialu_main_op1_i}) : '0;
+    408                                              assign mul_op2 = mdu_cmd_mul ? $signed({mul_op2_sgn, exu2ialu_main_op2_i}) : '0;
+    409                                              assign mul_res = mdu_cmd_mul ? mul_op1 * mul_op2                           : $signed('0);
+    410                                              `else // ~SCR1_FAST_MUL
+    411                                              assign mul_op1 = mdu_cmd_mul  ? $signed({mul_op1_sgn, exu2ialu_main_op1_i}) : '0;
+    412                                              assign mul_op2 = ~mdu_cmd_mul ? '0
+    413                                                             : mdu_fsm_idle ? $signed({1'b0, exu2ialu_main_op2_i[SCR1_MUL_WIDTH-1:0]})
+    414                                                                            : $signed({(mdu_iter_cnt[0] & mul_op2_is_sgn & mdu_res_lo_ff[SCR1_MUL_WIDTH-1]),
+    415                                                                                        mdu_res_lo_ff[SCR1_MUL_WIDTH-1:0]});
+    416                                              
+    417                                              assign mul_part_prod            = mdu_cmd_mul  ? mul_op1 * mul_op2 : $signed('0);
+    418                                              assign {mul_res_hi, mul_res_lo} = ~mdu_cmd_mul ? '0
+    419                                                                              : mdu_fsm_idle ? ({mdu_sum_res, exu2ialu_main_op2_i[`SCR1_XLEN-1:SCR1_MUL_WIDTH]})
+    420                                                                                             : ({mdu_sum_res, mdu_res_lo_ff[`SCR1_XLEN-1:SCR1_MUL_WIDTH]});
+    421                                              `endif // ~SCR1_FAST_MUL
+    422                                              
+    423                                              //-------------------------------------------------------------------------------
+    424                                              // Divider logic
+    425                                              //-------------------------------------------------------------------------------
+    426                                              //
+    427                                               // Division uses a non-restoring algorithm. 3 registers are used:
+    428                                               // - Remainder register
+    429                                               // - Quotient register
+    430                                               // - Dividend low part register (for corner case quotient bit calculation)
+    431                                               //
+    432                                               // Algorithm:
+    433                                               // 1. Initialize registers
+    434                                               // 2. Shift remainder and dividend low part registers left
+    435                                               // 3. Compare remainder register with the divisor (taking previous quotient bit
+    436                                               //    and operands signs into account) and calculate quotient bit based on the
+    437                                               //    comparison results
+    438                                               // 4. Shift quotient register left, append quotient bit to the quotient register
+    439                                               // 5. If iteration is not ready, go to step 2. Otherwise go to step 6
+    440                                               // 6. Do correction if necessary, otherwise division is done
+    441                                               //
+    442                                               // Quotient bit calculation has a corner case:
+    443                                               // When dividend is negative result carry bit check takes into account only
+    444                                               // the case of remainder register been greater than divisor. To handle
+    445                                               // equality case we should check if both the comparison result and the
+    446                                               // lower part of dividend are zero
+    447                                              //
+    448                                              
+    449                                              assign div_cmd  = {((exu2ialu_cmd_i == SCR1_IALU_CMD_REM)   | (exu2ialu_cmd_i == SCR1_IALU_CMD_REMU)),
+    450                                                                 ((exu2ialu_cmd_i == SCR1_IALU_CMD_REMU)  | (exu2ialu_cmd_i == SCR1_IALU_CMD_DIVU))};
+    451                                              
+    452                                              assign div_ops_are_sgn = ~div_cmd[0];
+    453                                              assign div_op1_is_neg  = div_ops_are_sgn & exu2ialu_main_op1_i[`SCR1_XLEN-1];
+    454                                              assign div_op2_is_neg  = div_ops_are_sgn & exu2ialu_main_op2_i[`SCR1_XLEN-1];
+    455                                              
+    456                                              always_comb begin
+    457                                                  div_res_rem_c = '0;
+    458                                                  div_res_rem   = '0;
+    459                                                  div_res_quo   = '0;
+    460                                                  div_quo_bit   = 1'b0;
+    461                                                  if (mdu_cmd_div & ~mdu_fsm_corr) begin
+    462                                                      div_res_rem_c = mdu_sum_res[SCR1_MDU_SUM_WIDTH-1];
+    463                                                      div_res_rem   = mdu_sum_res[SCR1_MDU_SUM_WIDTH-2:0];
+    464                                                      div_quo_bit   = ~(div_op1_is_neg ^ div_res_rem_c)
+    465                                                                    | (div_op1_is_neg & ({mdu_sum_res, div_dvdnd_lo_next} == '0));
+    466                                                      div_res_quo   = mdu_fsm_idle
+    467                                                                    ? {'0, div_quo_bit}
+    468                                                                    : {mdu_res_lo_ff[`SCR1_XLEN-2:0], div_quo_bit};
+    469                                                  end
+    470                                              end
+    471                                              
+    472                                              // Dividend low part register
+    473                                              //------------------------------------------------------------------------------
+    474                                              
+    475                                              assign div_dvdnd_lo_upd = exu2ialu_rvm_cmd_vd_i & ~ialu2exu_rvm_res_rdy_o;
+    476                                              
+    477                                              always_ff @(posedge clk) begin
+    478                                                  if (div_dvdnd_lo_upd) begin
+    479                                                      div_dvdnd_lo_ff <= div_dvdnd_lo_next;
+    480                                                  end
+    481                                              end
+    482                                              
+    483                                              assign div_dvdnd_lo_next = (~mdu_cmd_div | mdu_fsm_corr) ? '0
+    484                                                                       : mdu_fsm_idle                  ? exu2ialu_main_op1_i << 1
+    485                                                                                                       : div_dvdnd_lo_ff     << 1;
+    486                                              
+    487                                              //-------------------------------------------------------------------------------
+    488                                              // MDU adder
+    489                                              //-------------------------------------------------------------------------------
+    490                                              
+    491                                              always_comb begin
+    492                                                  mdu_sum_sub    = 1'b0;
+    493                                                  mdu_sum_op1    = '0;
+    494                                                  mdu_sum_op2    = '0;
+    495                                                  case (mdu_cmd)
+    496                                                      SCR1_IALU_MDU_DIV : begin
+    497                                                          logic           sgn;
+    498                                                          logic           inv;
+    499                                              
+    500                                                          sgn         = mdu_fsm_corr ? div_op1_is_neg ^ mdu_res_c_ff
+    501                                                                      : mdu_fsm_idle ? 1'b0
+    502                                                                                     : ~mdu_res_lo_ff[0];
+    503                                                          inv         = div_ops_are_sgn & main_ops_diff_sgn;
+    504                                                          mdu_sum_sub = ~inv ^ sgn;
+    505                                                          mdu_sum_op1 = mdu_fsm_corr ? $signed({1'b0, mdu_res_hi_ff})
+    506                                                                      : mdu_fsm_idle ? $signed({div_op1_is_neg, exu2ialu_main_op1_i[`SCR1_XLEN-1]})
+    507                                                                                     : $signed({mdu_res_hi_ff, div_dvdnd_lo_ff[`SCR1_XLEN-1]});
+    508                                                          mdu_sum_op2 = $signed({div_op2_is_neg, exu2ialu_main_op2_i});
+    509                                                      end
+    510                                              `ifndef SCR1_FAST_MUL
+    511                                                      SCR1_IALU_MDU_MUL : begin
+    512                                                          mdu_sum_op1 = mdu_fsm_idle
+    513                                                                      ? '0
+    514                                                                      : $signed({(mul_op1_is_sgn & mdu_res_hi_ff[`SCR1_XLEN-1]), mdu_res_hi_ff});
+    515                                                          mdu_sum_op2 = mul_part_prod;
+    516                                                      end
+    517                                              `endif // SCR1_FAST_MUL
+    518                                                      default : begin end
+    519                                                  endcase
+    520                                                  mdu_sum_res = mdu_sum_sub
+    521                                                              ? (mdu_sum_op1 - mdu_sum_op2)
+    522                                                              : (mdu_sum_op1 + mdu_sum_op2);
+    523                                              end
+    524                                              
+    525                                              //-------------------------------------------------------------------------------
+    526                                              // MUL/DIV intermediate results registers
+    527                                              //-------------------------------------------------------------------------------
+    528                                              
+    529                                              assign mdu_res_upd = exu2ialu_rvm_cmd_vd_i & ~ialu2exu_rvm_res_rdy_o;
+    530                                              
+    531                                              always_ff @(posedge clk) begin
+    532                                                  if (mdu_res_upd) begin
+    533                                                      mdu_res_c_ff  <= mdu_res_c_next;
+    534                                                      mdu_res_hi_ff <= mdu_res_hi_next;
+    535                                                      mdu_res_lo_ff <= mdu_res_lo_next;
+    536                                                  end
+    537                                              end
+    538                                              
+    539                                              assign mdu_res_c_next  = mdu_cmd_div ? div_res_rem_c : mdu_res_c_ff;
+    540                                              assign mdu_res_hi_next = mdu_cmd_div ? div_res_rem
+    541                                               `ifndef SCR1_FAST_MUL
+    542                                                                     : mdu_cmd_mul ? mul_res_hi
+    543                                               `endif // SCR1_FAST_MUL
+    544                                                                                   : mdu_res_hi_ff;
+    545                                              assign mdu_res_lo_next = mdu_cmd_div ? div_res_quo
+    546                                               `ifndef SCR1_FAST_MUL
+    547                                                                     : mdu_cmd_mul ? mul_res_lo
+    548                                               `endif // SCR1_FAST_MUL
+    549                                                                                   : mdu_res_lo_ff;
+    550                                              `endif // SCR1_RVM_EXT
+    551                                              
+    552                                              //-------------------------------------------------------------------------------
+    553                                              // Operation result forming
+    554                                              //-------------------------------------------------------------------------------
+    555                                              
+    556             1                        302     always_comb begin
+    557             1                        302         ialu2exu_main_res_o    = '0;
+    558             1                        302         ialu2exu_cmp_res_o     = 1'b0;
+    559                                              `ifdef SCR1_RVM_EXT
+    560                                                  ialu2exu_rvm_res_rdy_o = 1'b1;
+    561                                              `endif // SCR1_RVM_EXT
+    562                                              
+    563                                                  case (exu2ialu_cmd_i)
+    564                                                      SCR1_IALU_CMD_AND : begin
+    565             1                         31                 ialu2exu_main_res_o = exu2ialu_main_op1_i & exu2ialu_main_op2_i;
+    566                                                      end
+    567                                                      SCR1_IALU_CMD_OR : begin
+    568             1                         14                 ialu2exu_main_res_o = exu2ialu_main_op1_i | exu2ialu_main_op2_i;
+    569                                                      end
+    570                                                      SCR1_IALU_CMD_XOR : begin
+    571             1                         18                 ialu2exu_main_res_o = exu2ialu_main_op1_i ^ exu2ialu_main_op2_i;
+    572                                                      end
+    573                                                      SCR1_IALU_CMD_ADD : begin
+    574             1                         12                 ialu2exu_main_res_o = main_sum_res[`SCR1_XLEN-1:0];
+    575                                                      end
+    576                                                      SCR1_IALU_CMD_SUB : begin
+    577             1                         26                 ialu2exu_main_res_o = main_sum_res[`SCR1_XLEN-1:0];
+    578                                                      end
+    579                                                      SCR1_IALU_CMD_SUB_LT : begin
+    580             1                         18                 ialu2exu_main_res_o = `SCR1_XLEN'(main_sum_flags.s ^ main_sum_flags.o);
+    581             1                         18                 ialu2exu_cmp_res_o  = main_sum_flags.s ^ main_sum_flags.o;
+    582                                                      end
+    583                                                      SCR1_IALU_CMD_SUB_LTU : begin
+    584             1                         22                 ialu2exu_main_res_o = `SCR1_XLEN'(main_sum_flags.c);
+    585             1                         22                 ialu2exu_cmp_res_o  = main_sum_flags.c;
+    586                                                      end
+    587                                                      SCR1_IALU_CMD_SUB_EQ : begin
+    588             1                         14                 ialu2exu_main_res_o = `SCR1_XLEN'(main_sum_flags.z);
+    589             1                         14                 ialu2exu_cmp_res_o  = main_sum_flags.z;
+    590                                                      end
+    591                                                      SCR1_IALU_CMD_SUB_NE : begin
+    592             1                         12                 ialu2exu_main_res_o = `SCR1_XLEN'(~main_sum_flags.z);
+    593             1                         12                 ialu2exu_cmp_res_o  = ~main_sum_flags.z;
+    594                                                      end
+    595                                                      SCR1_IALU_CMD_SUB_GE : begin
+    596             1                         20                 ialu2exu_main_res_o = `SCR1_XLEN'(~(main_sum_flags.s ^ main_sum_flags.o));
+    597             1                         20                 ialu2exu_cmp_res_o  = ~(main_sum_flags.s ^ main_sum_flags.o);
+    598                                                      end
+    599                                                      SCR1_IALU_CMD_SUB_GEU : begin
+    600             1                         22                 ialu2exu_main_res_o = `SCR1_XLEN'(~main_sum_flags.c);
+    601             1                         22                 ialu2exu_cmp_res_o  = ~main_sum_flags.c;
+    602                                                      end
+    603                                                      SCR1_IALU_CMD_SLL,
+    604                                                      SCR1_IALU_CMD_SRL,
+    605                                                      SCR1_IALU_CMD_SRA: begin
+    606             1                         67                 ialu2exu_main_res_o = shft_res;
+    607                                                      end
+    608                                              `ifdef SCR1_RVM_EXT
+    609                                                      SCR1_IALU_CMD_MUL,
+    610                                                      SCR1_IALU_CMD_MULHU,
+    611                                                      SCR1_IALU_CMD_MULHSU,
+    612                                                      SCR1_IALU_CMD_MULH : begin
+    613                                               `ifdef SCR1_FAST_MUL
+    614                                                          ialu2exu_main_res_o = mul_cmd_hi
+    615                                                                              ? mul_res[SCR1_MUL_RES_WIDTH-1:`SCR1_XLEN]
+    616                                                                              : mul_res[`SCR1_XLEN-1:0];
+    617                                               `else // ~SCR1_FAST_MUL
+    618                                                          case (mdu_fsm_ff)
+    619                                                              SCR1_IALU_MDU_FSM_IDLE : begin
+    620                                                                  ialu2exu_main_res_o    = '0;
+    621                                                                  ialu2exu_rvm_res_rdy_o = ~mdu_iter_req;
+    622                                                              end
+    623                                                              SCR1_IALU_MDU_FSM_ITER : begin
+    624                                                                  ialu2exu_main_res_o    = mul_cmd_hi ? mul_res_hi : mul_res_lo;
+    625                                                                  ialu2exu_rvm_res_rdy_o = mdu_iter_rdy;
+    626                                                              end
+    627                                                          endcase
+    628                                               `endif // ~SCR1_FAST_MUL
+    629                                                      end
+    630                                                      SCR1_IALU_CMD_DIV,
+    631                                                      SCR1_IALU_CMD_DIVU,
+    632                                                      SCR1_IALU_CMD_REM,
+    633                                                      SCR1_IALU_CMD_REMU : begin
+    634                                                          case (mdu_fsm_ff)
+    635                                                              SCR1_IALU_MDU_FSM_IDLE : begin
+    636                                                                  ialu2exu_main_res_o    = (|exu2ialu_main_op2_i | div_cmd_rem)
+    637                                                                                         ? exu2ialu_main_op1_i
+    638                                                                                         : '1;
+    639                                                                  ialu2exu_rvm_res_rdy_o = ~mdu_iter_req;
+    640                                                              end
+    641                                                              SCR1_IALU_MDU_FSM_ITER : begin
+    642                                                                  ialu2exu_main_res_o    = div_cmd_rem ? div_res_rem : div_res_quo;
+    643                                                                  ialu2exu_rvm_res_rdy_o = mdu_iter_rdy & ~mdu_corr_req;
+    644                                                              end
+    645                                                              SCR1_IALU_MDU_FSM_CORR : begin
+    646                                                                  ialu2exu_main_res_o    = div_cmd_rem
+    647                                                                                         ? mdu_sum_res[`SCR1_XLEN-1:0]
+    648                                                                                         : -mdu_res_lo_ff[`SCR1_XLEN-1:0];
+    649                                                                  ialu2exu_rvm_res_rdy_o = 1'b1;
+    650                                                              end
+    651                                                          endcase
+    652                                                      end
+    653                                              `endif // SCR1_RVM_EXT
+    654                                                      default : begin end
+    655                                                  endcase
+    656                                              end
+    657                                              
+    658                                              
+    659                                              `ifdef SCR1_TRGT_SIMULATION
+    660                                              //-------------------------------------------------------------------------------
+    661                                              // Assertion
+    662                                              //-------------------------------------------------------------------------------
+    663                                              
+    664                                              `ifdef SCR1_RVM_EXT
+    665                                              
+    666                                              // X checks
+    667                                              
+    668                                              SCR1_SVA_IALU_XCHECK : assert property (
+    669                                                  @(negedge clk) disable iff (~rst_n)
+    670                                                  !$isunknown({exu2ialu_rvm_cmd_vd_i, mdu_fsm_ff})
+    671                                                  ) else $error("IALU Error: unknown values");
+    672                                              
+    673                                              SCR1_SVA_IALU_XCHECK_QUEUE : assert property (
+    674                                                  @(negedge clk) disable iff (~rst_n)
+    675                                                  exu2ialu_rvm_cmd_vd_i |->
+    676                                                  !$isunknown({exu2ialu_main_op1_i, exu2ialu_main_op2_i, exu2ialu_cmd_i})
+    677                                                  ) else $error("IALU Error: unknown values in queue");
+    678                                              
+    679                                              // Behavior checks
+    680                                              
+    681                                              SCR1_SVA_IALU_ILL_STATE : assert property (
+    682                                                  @(negedge clk) disable iff (~rst_n)
+    683                                                  $onehot0({~exu2ialu_rvm_cmd_vd_i, mdu_fsm_iter, mdu_fsm_corr})
+    684                                                  ) else $error("IALU Error: illegal state");
+    685                                              
+    686                                              SCR1_SVA_IALU_JUMP_FROM_IDLE : assert property (
+    687                                                  @(negedge clk) disable iff (~rst_n)
+    688                                                  (mdu_fsm_idle & (~exu2ialu_rvm_cmd_vd_i | ~mdu_iter_req)) |=> mdu_fsm_idle
+    689                                                  ) else $error("EXU Error: illegal jump from IDLE state");
+    690                                              
+    691                                              SCR1_SVA_IALU_IDLE_TO_ITER : assert property (
+    692                                                  @(negedge clk) disable iff (~rst_n)
+    693                                                  (mdu_fsm_idle & exu2ialu_rvm_cmd_vd_i & mdu_iter_req) |=> mdu_fsm_iter
+    694                                                  ) else $error("EXU Error: illegal change state form IDLE to ITER");
+    695                                              
+    696                                              SCR1_SVA_IALU_JUMP_FROM_ITER : assert property (
+    697                                                  @(negedge clk) disable iff (~rst_n)
+    698                                                  (mdu_fsm_iter & ~mdu_iter_rdy) |=> mdu_fsm_iter
+    699                                                  ) else $error("EXU Error: illegal jump from ITER state");
+    700                                              
+    701                                              SCR1_SVA_IALU_ITER_TO_IDLE : assert property (
+    702                                                  @(negedge clk) disable iff (~rst_n)
+    703                                                  (mdu_fsm_iter & mdu_iter_rdy & ~mdu_corr_req) |=> mdu_fsm_idle
+    704                                                  ) else $error("EXU Error: illegal state change ITER to IDLE");
+    705                                              
+    706                                              SCR1_SVA_IALU_ITER_TO_CORR : assert property (
+    707                                                  @(negedge clk) disable iff (~rst_n)
+    708                                                  (mdu_fsm_iter & mdu_iter_rdy & mdu_corr_req) |=> mdu_fsm_corr
+    709                                                  ) else $error("EXU Error: illegal state change ITER to CORR");
+    710                                              
+    711                                              SCR1_SVA_IALU_CORR_TO_IDLE : assert property (
+    712                                                  @(negedge clk) disable iff (~rst_n)
+    713                                                  mdu_fsm_corr |=> mdu_fsm_idle
+    714                                                  ) else $error("EXU Error: illegal state stay in CORR");
+    715                                              
+    716                                              `endif // SCR1_RVM_EXT
+    717                                              
+    718                                              `endif // SCR1_TRGT_SIMULATION
+    719                                              
+    720                                              endmodule : scr1_pipe_ialu
+
+Branch Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Branches                        22        22         0     100.0
+
+================================Branch Details================================
+
+Branch Coverage for file ../../src/core/pipeline/scr1_pipe_ialu.sv --
+
+------------------------------------IF Branch------------------------------------
+    206                                      301     Count coming in to IF
+    206             1                        289                      ? ({1'b0, exu2ialu_main_op1_i} - {1'b0, exu2ialu_main_op2_i})   // Subtraction and comparison
+    207             1                         12                      : ({1'b0, exu2ialu_main_op1_i} + {1'b0, exu2ialu_main_op2_i});  // Addition
+Branch totals: 2 hits of 2 branches = 100.0%
+
+------------------------------------IF Branch------------------------------------
+    252                                      281     Count coming in to IF
+    252             1                         62                             (exu2ialu_cmd_i == SCR1_IALU_CMD_SRA)}
+    253             1                        219                          : 2'b00;
+Branch totals: 2 hits of 2 branches = 100.0%
+
+------------------------------------CASE Branch------------------------------------
+    258                                      302     Count coming in to CASE
+    259             1                         29             2'b10   : shft_res = shft_op1  >> shft_op2;
+    260             1                         24             2'b11   : shft_res = shft_op1 >>> shft_op2;
+    261             1                        249             default : shft_res = shft_op1  << shft_op2;
+Branch totals: 3 hits of 3 branches = 100.0%
+
+------------------------------------CASE Branch------------------------------------
+    563                                      302     Count coming in to CASE
+    564             1                         31             SCR1_IALU_CMD_AND : begin
+    567             1                         14             SCR1_IALU_CMD_OR : begin
+    570             1                         18             SCR1_IALU_CMD_XOR : begin
+    573             1                         12             SCR1_IALU_CMD_ADD : begin
+    576             1                         26             SCR1_IALU_CMD_SUB : begin
+    579             1                         18             SCR1_IALU_CMD_SUB_LT : begin
+    583             1                         22             SCR1_IALU_CMD_SUB_LTU : begin
+    587             1                         14             SCR1_IALU_CMD_SUB_EQ : begin
+    591             1                         12             SCR1_IALU_CMD_SUB_NE : begin
+    595             1                         20             SCR1_IALU_CMD_SUB_GE : begin
+    599             1                         22             SCR1_IALU_CMD_SUB_GEU : begin
+    603             1                         14             SCR1_IALU_CMD_SLL,
+    604             1                         29             SCR1_IALU_CMD_SRL,
+    605             1                         24             SCR1_IALU_CMD_SRA: begin
+    654             1                         26             default : begin end
+Branch totals: 15 hits of 15 branches = 100.0%
+
+
+Condition Coverage:
+    Enabled Coverage            Active   Covered    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FEC Condition Terms              0         0         0     100.0
+Expression Coverage:
+    Enabled Coverage            Active   Covered    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FEC Expression Terms            15        15         0     100.0
+
+================================Expression Details================================
+
+Expression Coverage for file ../../src/core/pipeline/scr1_pipe_ialu.sv --
+
+----------------Focused Expression View-----------------
+Line       209 Item    1  ((~exu2ialu_main_op1_i[31] & exu2ialu_main_op2_i[31]) & main_sum_res[31])
+Expression totals: 3 of 3 input terms covered = 100.0%
+
+----------------Focused Expression View-----------------
+Line       212 Item    1  ((exu2ialu_main_op2_i[31] ~| main_sum_res[31]) & exu2ialu_main_op1_i[31])
+Expression totals: 3 of 3 input terms covered = 100.0%
+
+----------------Focused Expression View-----------------
+Line       220 Item    1  (main_sum_pos_ovflw | main_sum_neg_ovflw)
+Expression totals: 2 of 2 input terms covered = 100.0%
+
+----------------Focused Expression View-----------------
+Line       247 Item    1  (((exu2ialu_cmd_i == 12) | (exu2ialu_cmd_i == 13)) | (exu2ialu_cmd_i == 14))
+Expression totals: 3 of 3 input terms covered = 100.0%
+
+-----------Focused Expression View (Bimodal)------------
+Line       581 Item    1  (main_sum_flags.s ^ main_sum_flags.o)
+Expression totals: 2 of 2 input terms covered = 100.0%
+
+-----------Focused Expression View (Bimodal)------------
+Line       597 Item    1  (main_sum_flags.s ~^ main_sum_flags.o)
+Expression totals: 2 of 2 input terms covered = 100.0%
+
+
+FSM Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FSMs                                                       100.0
+        States                       0         0         0     100.0
+        Transitions                  0         0         0     100.0
+Toggle Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Toggle Bins                    620       615         5      99.1
+
+================================Toggle Details================================
+
+Toggle Coverage for File ../../src/core/pipeline/scr1_pipe_ialu.sv --
+
+       Line                                   Node      1H->0L      0L->1H  "Coverage"
+--------------------------------------------------------------------------------------
+        102                       main_sum_flags.z           1           0       50.00 
+        105                      main_ops_diff_sgn           0           0        0.00 
+        106                      main_ops_non_zero           0           0        0.00 
+
+Total Node Count     =        310 
+Toggled Node Count   =        307 
+Untoggled Node Count =          3 
+
+Toggle Coverage      =       99.1% (615 of 620 bins)
+
+=================================================================================
+=== File: ../../src/includes/scr1_search_ms1.svh
+=================================================================================
+Statement Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Stmts                           27         0        27       0.0
+
+================================Statement Details================================
+
+Statement Coverage for file ../../src/includes/scr1_search_ms1.svh --
+
+    1                                                /// Copyright by Syntacore LLC © 2016-2021. See LICENSE for details
+    2                                                /// @file       <scr1_search_ms1.svh>
+    3                                                /// @brief      Most significant one search function
+    4                                                ///
+    5                                                
+    6                                                `ifndef SCR1_SEARCH_MS1_SVH
+    7                                                `define SCR1_SEARCH_MS1_SVH
+    8                                                
+    9                                                //-------------------------------------------------------------------------------
+    10                                               // Local types declaration
+    11                                               //-------------------------------------------------------------------------------
+    12                                               typedef struct {
+    13                                                   logic       vd;
+    14                                                   logic       idx;
+    15                                               } type_scr1_search_one_2_s;
+    16                                               
+    17                                               typedef struct {
+    18                                                   logic           vd;
+    19                                                   logic [4:0]     idx;
+    20                                               } type_scr1_search_one_32_s;
+    21                                               
+    22                                               //-------------------------------------------------------------------------------
+    23                                               // Leading Zeros Count Function
+    24                                               //-------------------------------------------------------------------------------
+    25                                               function automatic type_scr1_search_one_2_s scr1_lead_zeros_cnt_2(
+    26                                                   input   logic [1:0]     din
+    27                                               );
+    28                                                   type_scr1_search_one_2_s tmp;
+    29                                               begin
+    30              1                    ***0***         tmp.vd  = |din;
+    31              1                    ***0***         tmp.idx = ~din[1];
+    32              1                    ***0***         return  tmp;
+    33                                               end
+    34                                               endfunction : scr1_lead_zeros_cnt_2
+    35                                               
+    36                                               function automatic logic [4:0] scr1_lead_zeros_cnt_32(
+    37                                                   input   logic [31:0]    din
+    38                                               );
+    39                                               begin
+    40                                                   logic [15:0]    stage1_vd;
+    41                                                   logic [7:0]     stage2_vd;
+    42                                                   logic [3:0]     stage3_vd;
+    43                                                   logic [1:0]     stage4_vd;
+    44                                               
+    45                                                   logic           stage1_idx [15:0];
+    46                                                   logic [1:0]     stage2_idx [7:0];
+    47                                                   logic [2:0]     stage3_idx [3:0];
+    48                                                   logic [3:0]     stage4_idx [1:0];
+    49                                                   type_scr1_search_one_32_s tmp;
+    50                                                   logic [4:0]     res;
+    51                                               
+    52                                                   // Stage 1
+    53              1                    ***0***         for (int unsigned i=0; i<16; ++i) begin
+    53              2                    ***0***     
+    54                                                       type_scr1_search_one_2_s tmp;
+    55              1                    ***0***             tmp = scr1_lead_zeros_cnt_2(din[(i+1)*2-1-:2]);
+    56              1                    ***0***             stage1_vd[i]  = tmp.vd;
+    57              1                    ***0***             stage1_idx[i] = tmp.idx;
+    58                                                   end
+    59                                               
+    60                                                   // Stage 2
+    61              1                    ***0***         for (int unsigned i=0; i<8; ++i) begin
+    61              2                    ***0***     
+    62                                                       type_scr1_search_one_2_s tmp;
+    63              1                    ***0***             tmp = scr1_lead_zeros_cnt_2(stage1_vd[(i+1)*2-1-:2]);
+    64              1                    ***0***             stage2_vd[i]  = tmp.vd;
+    65              1                    ***0***             stage2_idx[i] = (tmp.idx) ? {tmp.idx, stage1_idx[2*i]} : {tmp.idx, stage1_idx[2*i+1]};
+    66                                                   end
+    67                                               
+    68                                                   // Stage 3
+    69              1                    ***0***         for (int unsigned i=0; i<4; ++i) begin
+    69              2                    ***0***     
+    70                                                       type_scr1_search_one_2_s tmp;
+    71              1                    ***0***             tmp = scr1_lead_zeros_cnt_2(stage2_vd[(i+1)*2-1-:2]);
+    72              1                    ***0***             stage3_vd[i]  = tmp.vd;
+    73              1                    ***0***             stage3_idx[i] = (tmp.idx) ? {tmp.idx, stage2_idx[2*i]} : {tmp.idx, stage2_idx[2*i+1]};
+    74                                                   end
+    75                                               
+    76                                                   // Stage 4
+    77              1                    ***0***         for (int unsigned i=0; i<2; ++i) begin
+    77              2                    ***0***     
+    78                                                       type_scr1_search_one_2_s tmp;
+    79              1                    ***0***             tmp = scr1_lead_zeros_cnt_2(stage3_vd[(i+1)*2-1-:2]);
+    80              1                    ***0***             stage4_vd[i]  = tmp.vd;
+    81              1                    ***0***             stage4_idx[i] = (tmp.idx) ? {tmp.idx, stage3_idx[2*i]} : {tmp.idx, stage3_idx[2*i+1]};
+    82                                                   end
+    83                                               
+    84                                                   // Stage 5
+    85              1                    ***0***         tmp.vd = |stage4_vd;
+    86              1                    ***0***         tmp.idx = (stage4_vd[1]) ? {1'b0, stage4_idx[1]} : {1'b1, stage4_idx[0]};
+    87                                               
+    88              1                    ***0***         res = tmp.idx;
+    89                                               
+    90              1                    ***0***         return res;
+    91                                               end
+    92                                               endfunction : scr1_lead_zeros_cnt_32
+    93                                               
+    94                                               `endif // SCR1_SEARCH_MS1_SVH
+
+Branch Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Branches                         8         0         8       0.0
+
+================================Branch Details================================
+
+Branch Coverage for file ../../src/includes/scr1_search_ms1.svh --
+
+------------------------------------IF Branch------------------------------------
+    65                                   ***0***     Count coming in to IF
+    65              1                    ***0***             stage2_idx[i] = (tmp.idx) ? {tmp.idx, stage1_idx[2*i]} : {tmp.idx, stage1_idx[2*i+1]};
+    65              2                    ***0***             stage2_idx[i] = (tmp.idx) ? {tmp.idx, stage1_idx[2*i]} : {tmp.idx, stage1_idx[2*i+1]};
+Branch totals: 0 hits of 2 branches = 0.0%
+
+------------------------------------IF Branch------------------------------------
+    73                                   ***0***     Count coming in to IF
+    73              1                    ***0***             stage3_idx[i] = (tmp.idx) ? {tmp.idx, stage2_idx[2*i]} : {tmp.idx, stage2_idx[2*i+1]};
+    73              2                    ***0***             stage3_idx[i] = (tmp.idx) ? {tmp.idx, stage2_idx[2*i]} : {tmp.idx, stage2_idx[2*i+1]};
+Branch totals: 0 hits of 2 branches = 0.0%
+
+------------------------------------IF Branch------------------------------------
+    81                                   ***0***     Count coming in to IF
+    81              1                    ***0***             stage4_idx[i] = (tmp.idx) ? {tmp.idx, stage3_idx[2*i]} : {tmp.idx, stage3_idx[2*i+1]};
+    81              2                    ***0***             stage4_idx[i] = (tmp.idx) ? {tmp.idx, stage3_idx[2*i]} : {tmp.idx, stage3_idx[2*i+1]};
+Branch totals: 0 hits of 2 branches = 0.0%
+
+------------------------------------IF Branch------------------------------------
+    86                                   ***0***     Count coming in to IF
+    86              1                    ***0***         tmp.idx = (stage4_vd[1]) ? {1'b0, stage4_idx[1]} : {1'b1, stage4_idx[0]};
+    86              2                    ***0***         tmp.idx = (stage4_vd[1]) ? {1'b0, stage4_idx[1]} : {1'b1, stage4_idx[0]};
+Branch totals: 0 hits of 2 branches = 0.0%
+
+
+Condition Coverage:
+    Enabled Coverage            Active   Covered    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FEC Condition Terms              0         0         0     100.0
+Expression Coverage:
+    Enabled Coverage            Active   Covered    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FEC Expression Terms             0         0         0     100.0
+FSM Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    FSMs                                                       100.0
+        States                       0         0         0     100.0
+        Transitions                  0         0         0     100.0
+Toggle Coverage:
+    Enabled Coverage            Active      Hits    Misses % Covered
+    ----------------            ------      ----    ------ ---------
+    Toggle Bins                      0         0         0     100.0
+
+================================Toggle Details================================
+
+Toggle Coverage for File ../../src/includes/scr1_search_ms1.svh --
+
+       Line                                   Node      1H->0L      0L->1H  "Coverage"
+--------------------------------------------------------------------------------------
+
+Total Node Count     =          0 
+Toggled Node Count   =          0 
+Untoggled Node Count =          0 
+
+Toggle Coverage      =      100.0% (0 of 0 bins)
+
+
+ASSERTION RESULTS:
+-------------------------------------------------------
+Name                 File(Line)           Failure Pass 
+                                          Count   Count 
+-------------------------------------------------------
+/scr1_pipe_ialu_tb_uvm/dut_sequence/body/#ublk#110036557#23/immed__26
+                     ./uvm/dut_sequence.svh(26)       0     1
+
+Total Coverage By File (code coverage only, filtered view): 82.7%
+

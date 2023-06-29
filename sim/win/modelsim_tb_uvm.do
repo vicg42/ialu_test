@@ -30,6 +30,7 @@ view wave
 #config wave -timelineunits us
 view structure
 view signals
-coverage save -onexit TEST.ucdb
-vcover report -html TEST.ucdb
-run 5us
+run 10us
+coverage report -file coverage-report-summary.txt
+coverage report -details -file coverage-report-details.txt
+#coverage save -onexit TEST.ucdb
